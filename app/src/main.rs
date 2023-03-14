@@ -24,7 +24,9 @@ use sgx_urts::enclave::SgxEnclave;
 static ENCLAVE_FILE: &str = "enclave.signed.so";
 
 extern "C" {
-    fn sample(eid: EnclaveId, retval: *mut SgxStatus) -> SgxStatus;
+    fn _sample(eid: EnclaveId, retval: *mut SgxStatus) -> SgxStatus;
+    fn test_xts_mode1(eid: EnclaveId, retval: *mut SgxStatus) -> SgxStatus;
+    fn test_xts_mode2(eid: EnclaveId, retval: *mut SgxStatus) -> SgxStatus;
 }
 
 fn main() {
@@ -40,9 +42,14 @@ fn main() {
     };
 
     let mut retval = SgxStatus::Success;
-    let result = unsafe { sample(enclave.eid(), &mut retval) };
+    let result = unsafe { test_xts_mode1(enclave.eid(), &mut retval) };
     match result {
-        SgxStatus::Success => println!("[+] sample ended!"),
+        SgxStatus::Success => println!("[+] test_xts_mode1 ended!"),
+        _ => println!("[-] ECALL Enclave Failed {}!", result.as_str()),
+    }
+    let result = unsafe { test_xts_mode2(enclave.eid(), &mut retval) };
+    match result {
+        SgxStatus::Success => println!("[+] test_xts_mode2 ended!"),
         _ => println!("[-] ECALL Enclave Failed {}!", result.as_str()),
     }
 }

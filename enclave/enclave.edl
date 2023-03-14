@@ -27,5 +27,7 @@ enclave {
         /* define ECALLs here. */
 
         public sgx_status_t sample();
+        public sgx_status_t test_xts_mode1();
+        public sgx_status_t test_xts_mode2();
     };
 };
