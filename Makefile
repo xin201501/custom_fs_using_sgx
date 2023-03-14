@@ -120,7 +120,7 @@ RustEnclave_Link_Flags := -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfi
 	$(ENCLAVE_LDFLAGS)
 
 RustEnclave_Out_Path := ./enclave/target/$(Rust_Build_Target)/$(Rust_Build_Out)
-RustEnclave_Lib_Name := $(RustEnclave_Out_Path)/libsample.a
+RustEnclave_Lib_Name := $(RustEnclave_Out_Path)/libcrypto_in_sgx.a
 RustEnclave_Name := $(CUSTOM_BIN_PATH)/enclave.so
 RustEnclave_Signed_Name := $(CUSTOM_BIN_PATH)/enclave.signed.so
 

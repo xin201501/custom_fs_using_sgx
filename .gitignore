@@ -47,28 +47,17 @@ Cargo.lock
 *.so.*
 
 # samplecode
-samplecode/**/*_u.c
-samplecode/**/*_u.h
-samplecode/**/*_t.c
-samplecode/**/*_t.h
-samplecode/**/bin/app
-samplecode/**/bin/client
-samplecode/**/bin/server
+**/*_u.c
+**/*_u.h
+**/*_t.c
+**/*_t.h
+**/bin/app
+**/bin/client
+**/bin/server
 
 # tests
-tests/**/*_u.c
-tests/**/*_u.h
-tests/**/*_t.c
-tests/**/*_t.h
-tests/**/bin/test
-
-#libunwind
-sgx_unwind/libunwind/INSTALL
-sgx_unwind/libunwind/m4/*
-sgx_unwind/libunwind/config/*
-sgx_unwind/libunwind/include/config.h.*
-sgx_unwind/libunwind/Makefile.in
-sgx_unwind/libunwind/aclocal.m4
-sgx_unwind/libunwind/autom4te.cache/*
-sgx_unwind/libunwind/configure
-sgx_unwind/libunwind/src/Makefile.in
+**/tests/*_u.c
+**/tests/*_u.h
+**/tests/*_t.c
+**/tests/*_t.h
+**/tests/bin/test

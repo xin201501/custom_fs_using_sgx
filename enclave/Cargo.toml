@@ -29,4 +29,4 @@ crate-type = ["staticlib"]
 default = []
 
 [dependencies]
-sgx_types = {path = "../../sgx_types"}
+sgx_types = {path = "../../../sgx_types"}

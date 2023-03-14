@@ -21,7 +21,7 @@ use sgx_types::error::SgxStatus;
 use sgx_types::types::*;
 use sgx_urts::enclave::SgxEnclave;
 
-static ENCLAVE_FILE: &'static str = "enclave.signed.so";
+static ENCLAVE_FILE: &str = "enclave.signed.so";
 
 extern "C" {
     fn sample(eid: EnclaveId, retval: *mut SgxStatus) -> SgxStatus;
