@@ -79,8 +79,8 @@ App_C_Flags := $(CFLAGS) $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Includ
 
 App_Rust_Path := ./app/target/$(Rust_Build_Out)
 App_Enclave_u_Object := $(CUSTOM_LIBRARY_PATH)/libenclave_u.a
-App_Name := $(CUSTOM_BIN_PATH)/app
-
+App_SOName := libcustom_filesystem_sgx_encryption_module.so
+App_Name := $(CUSTOM_BIN_PATH)/$(App_SOName)
 ######## Enclave Settings ########
 
 # BUILD_STD=no       use no_std
@@ -145,7 +145,7 @@ $(App_Enclave_u_Object): app/enclave_u.o
 
 $(App_Name): $(App_Enclave_u_Object) app
 	@mkdir -p $(CUSTOM_BIN_PATH)
-	@cp $(App_Rust_Path)/app $(CUSTOM_BIN_PATH)
+	cp $(App_Rust_Path)/$(App_SOName) $(CUSTOM_BIN_PATH)
 	@echo "LINK => $@"
 
 ######## Enclave Objects ########
@@ -189,13 +189,7 @@ else
 	@cd enclave && $(Rust_Unstable_Flags) RUST_TARGET_PATH=$(Rust_Target_Path) xargo build --target $(Rust_Build_Target) $(RustEnclave_Build_Flags)
 endif
 
-######## Run Enclave ########
-
-.PHONY: run
-run: $(App_Name) $(RustEnclave_Signed_Name)
-	@echo -e '\n===== Run Enclave =====\n'
-	@cd bin && ./app
-
+######## Clean Objects ########
 .PHONY: clean
 clean:
 	@rm -f $(App_Name) $(RustEnclave_Name) $(RustEnclave_Signed_Name) enclave/*_t.* app/*_u.*

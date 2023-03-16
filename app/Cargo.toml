@@ -16,13 +16,15 @@
 # under the License.
 
 [package]
-name = "app"
+name = "custom_filesystem_sgx_encryption_module"
 version = "1.0.0"
 authors = ["xin201501"]
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-aes = { version = "0.8.2", default-features = false }
+anyhow = "1.0.69"
 sgx_types = { path = "../../../sgx_types" }
 sgx_urts = { path = "../../../sgx_urts" }
-xts-mode = { version = "0.5.1", default-features = false }

@@ -13,15 +13,29 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.
+// under the License..
 
-enclave {
-    from "sgx_stdio.edl" import *;
-    from "sgx_tstd.edl" import *;
-    from "sgx_thread.edl" import *;
+use sgx_types::{error::SgxStatus, types::EnclaveId};
+use sgx_urts::enclave::SgxEnclave;
+extern "C" {
+    fn sample(eid: EnclaveId, ret: *mut SgxStatus);
+}
 
-    trusted {
-        /* define ECALLs here. */
-        public sgx_status_t sample();
-    };
-};
+fn test_sample() -> anyhow::Result<()> {
+    // create an enclave
+    let enclave = SgxEnclave::create("../bin/enclave.signed.so", true)?;
+    let mut sgx_status = SgxStatus::BadStatus;
+    unsafe { sample(enclave.eid(), &mut sgx_status) };
+    // match `sgx_status`
+    match sgx_status {
+        SgxStatus::Success => Ok(()),
+        _ => Err(anyhow::anyhow!(
+            "enclave run failed with status: {:?}",
+            sgx_status
+        )),
+    }
+}
+#[test]
+fn test() {
+    test_sample().unwrap();
+}
