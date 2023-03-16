@@ -29,6 +29,8 @@ crate-type = ["staticlib"]
 default = []
 
 [dependencies]
-aes = { version = "0.7.5", features = ["force-soft"]}
+
+# aes-kw = "0.2.1"
 sgx_types = {path = "../../../sgx_types"}
-xts-mode = { version = "0.4.1" ,default-features = false}
+aes = { version = "0.6.0", default-features = false}
+xts-mode = { version = "0.3.0" ,default-features = false}
