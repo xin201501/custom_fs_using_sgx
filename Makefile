@@ -79,8 +79,7 @@ App_C_Flags := $(CFLAGS) $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Includ
 
 App_Rust_Path := ./app/target/$(Rust_Build_Out)
 App_Enclave_u_Object := $(CUSTOM_LIBRARY_PATH)/libenclave_u.a
-App_SOName := libcustom_filesystem_sgx_encryption_module.so
-App_Name := $(CUSTOM_BIN_PATH)/$(App_SOName)
+App_Name := $(CUSTOM_BIN_PATH)/filesystem
 ######## Enclave Settings ########
 
 # BUILD_STD=no       use no_std
@@ -145,7 +144,7 @@ $(App_Enclave_u_Object): app/enclave_u.o
 
 $(App_Name): $(App_Enclave_u_Object) app
 	@mkdir -p $(CUSTOM_BIN_PATH)
-	cp $(App_Rust_Path)/$(App_SOName) $(CUSTOM_BIN_PATH)
+	cp $(App_Rust_Path)/filesystem $(CUSTOM_BIN_PATH)
 	@echo "LINK => $@"
 
 ######## Enclave Objects ########

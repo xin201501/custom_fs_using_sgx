@@ -61,3 +61,6 @@ Cargo.lock
 **/tests/*_t.c
 **/tests/*_t.h
 **/tests/bin/test
+# NEW ADDED:output binary file folder
+/bin
+/lib
