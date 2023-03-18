@@ -19,7 +19,7 @@ enclave {
     from "sgx_stdio.edl" import *;
     from "sgx_tstd.edl" import *;
     from "sgx_thread.edl" import *;
-
+    from "sgx_tswitchless.edl" import *;
     trusted {
         /* define ECALLs here. */
         public sgx_status_t sample();
@@ -30,7 +30,7 @@ enclave {
             size_t sector_size,
             uint64_t sector_index,
             [out,size=plaintext_len] uint8_t* ciphertext
-        );
+        ) transition_using_threads;
         public void aes_xts_128bit_128bit_KEK_decryption(
             [in] uint8_t KEK[16],
             [in,size=ciphertext_len] const uint8_t* ciphertext,
@@ -38,7 +38,7 @@ enclave {
             size_t sector_size,
             uint32_t sector_index,
             [out,size=ciphertext_len] uint8_t* plaintext
-        );
+        ) transition_using_threads;
         public sgx_status_t test_xts_mode1();
     };
 };

@@ -111,9 +111,10 @@ RustEnclave_Build_Flags := $(Rust_Build_Flags)
 RustEnclave_Src_Files := $(shell find enclave/ -type f -name '*.rs') $(shell find enclave/ -type f -name 'Cargo.toml')
 RustEnclave_Include_Paths := -I$(CUSTOM_COMMON_PATH)/inc -I$(CUSTOM_COMMON_PATH)/inc/tlibc -I$(CUSTOM_EDL_PATH)
 
-RustEnclave_Link_Libs := -L$(CUSTOM_LIBRARY_PATH) -lenclave
+RustEnclave_Link_Libs := -L$(SGX_LIBRARY_PATH) -L$(CUSTOM_LIBRARY_PATH) -lenclave
 RustEnclave_C_Flags := $(CFLAGS) $(ENCLAVE_CFLAGS) $(SGX_COMMON_CFLAGS) $(RustEnclave_Include_Paths)
 RustEnclave_Link_Flags := -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles \
+	-Wl,--whole-archive -lsgx_tswitchless -Wl,--no-whole-archive \
 	-Wl,--start-group $(RustEnclave_Link_Libs) -Wl,--end-group \
 	-Wl,--version-script=enclave/enclave.lds \
 	$(ENCLAVE_LDFLAGS)
