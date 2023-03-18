@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn test_aes_xts_128bit_128bit_kek_encryption_and_decryption() -> anyhow::Result<()> {
         // create an enclave
-        let enclave = SgxEnclave::create_with_switchless(DEFAULT_ENCLAVE_PATH, true,4,4)?;
+        let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
         let mut plaintext = [5; 0x400];
         let mut ciphertext = [0u8; 1024];
 

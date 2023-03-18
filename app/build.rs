@@ -29,9 +29,9 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}/lib64", sdk_dir);
     
-    println!("cargo:rustc-link-arg=-Wl,--whole-archive");
-    println!("cargo:rustc-link-arg=-lsgx_uswitchless");
-    println!("cargo:rustc-link-arg=-Wl,--no-whole-archive");
+    // println!("cargo:rustc-link-arg=-Wl,--whole-archive");
+    // println!("cargo:rustc-link-arg=-lsgx_uswitchless");
+    // println!("cargo:rustc-link-arg=-Wl,--no-whole-archive");
 
     match mode.as_ref() {
         "SIM" | "SW" => println!("cargo:rustc-link-lib=dylib=sgx_urts_sim"),
