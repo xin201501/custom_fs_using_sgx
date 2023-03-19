@@ -25,3 +25,4 @@ aes = { version = "0.7.5", features = ["force-soft"]}
 xts-mode = { version = "0.4.1" ,default-features = false}
 sgx_types = {path = "../../../sgx_types"}
 sgx_urts = {path = "../../../sgx_urts"}
+once_cell = "1.17.1"

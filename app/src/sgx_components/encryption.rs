@@ -3,6 +3,10 @@ use sgx_types::{error::SgxStatus, types::EnclaveId};
 use sgx_urts::enclave::SgxEnclave;
 use std::path::Path;
 pub const DEFAULT_ENCLAVE_PATH: &str = "../bin/enclave.signed.so";
+use once_cell::sync::OnceCell;
+
+static GLOBAL_SGX_ENCRYPT_ENV: OnceCell<SgxEnclave> = OnceCell::new();
+
 extern "C" {
     fn aes_xts_128bit_128bit_KEK_encryption(
         eid: EnclaveId,
@@ -24,7 +28,7 @@ extern "C" {
     ) -> SgxStatus;
 }
 pub struct SGXEncryptionManager {
-    sgx_environment: SgxEnclave,
+    sgx_environment_id: EnclaveId,
     kek: [u8; 16],
     sector_size: usize,
 }
@@ -35,9 +39,11 @@ impl SGXEncryptionManager {
         kek: [u8; 16],
         sector_size: usize,
     ) -> anyhow::Result<Self> {
-        let sgx_environment = SgxEnclave::create(enclave_file_path, true)?;
+        let global_sgx_environment = GLOBAL_SGX_ENCRYPT_ENV
+            .get_or_try_init(|| SgxEnclave::create(enclave_file_path, true))?;
+        // let sgx_environment = SgxEnclave::create(enclave_file_path, true)?;
         Ok(Self {
-            sgx_environment,
+            sgx_environment_id: global_sgx_environment.eid(),
             kek,
             sector_size,
         })
@@ -50,40 +56,10 @@ impl SGXEncryptionManager {
         plaintext: &[u8],
         first_sector_index: u64,
     ) -> anyhow::Result<Vec<u8>> {
-        let mut ciphertext = vec![0u8;plaintext.len()];
-        // // println!("sss");
-        // // for every sector in the plaintext, encrypt it with the kek
-        // for sector_index in 0..(plaintext.len() / self.sector_size) {
-        //     let sgx_status = unsafe {
-        //         aes_xts_128bit_128bit_KEK_encryption(
-        //             self.sgx_environment.eid(),
-        //             &self.kek,
-        //             plaintext
-        //                 [sector_index * self.sector_size..(sector_index + 1) * self.sector_size]
-        //                 .as_ptr(),
-        //             self.sector_size,
-        //             self.sector_size,
-        //             first_sector_index + sector_index as u64,
-        //             ciphertext
-        //                 [sector_index * self.sector_size..(sector_index + 1) * self.sector_size]
-        //                 .as_mut_ptr(),
-        //         )
-        //     };
-
-        //     match sgx_status {
-        //         SgxStatus::Success => (),
-        //         _ => {
-        //             return Err(anyhow::anyhow!(
-        //                 "enclave run failed with status: {:?}",
-        //                 sgx_status
-        //             ))
-        //         }
-        //     };
-        // }
-        // Ok(ciphertext)
+        let mut ciphertext = vec![0u8; plaintext.len()];
         let sgx_status = unsafe {
             aes_xts_128bit_128bit_KEK_encryption(
-                self.sgx_environment.eid(),
+                self.sgx_environment_id,
                 &self.kek,
                 plaintext.as_ptr(),
                 plaintext.len(),
@@ -108,37 +84,9 @@ impl SGXEncryptionManager {
         first_sector_index: u64,
     ) -> anyhow::Result<Vec<u8>> {
         let mut plaintext = vec![0u8; ciphertext.len()];
-        // // for every sector in the ciphertext, decrypt it with the kek
-        // for sector_index in 0..(ciphertext.len() / self.sector_size) {
-        //     let sgx_status = unsafe {
-        //         aes_xts_128bit_128bit_KEK_decryption(
-        //             self.sgx_environment.eid(),
-        //             &self.kek,
-        //             ciphertext
-        //                 [sector_index * self.sector_size..(sector_index + 1) * self.sector_size]
-        //                 .as_ptr(),
-        //             self.sector_size,
-        //             self.sector_size,
-        //             first_sector_index + sector_index as u64,
-        //             plaintext
-        //                 [sector_index * self.sector_size..(sector_index + 1) * self.sector_size]
-        //                 .as_mut_ptr(),
-        //         )
-        //     };
-
-        //     match sgx_status {
-        //         SgxStatus::Success => (),
-        //         _ => {
-        //             return Err(anyhow::anyhow!(
-        //                 "enclave run failed with status: {:?}",
-        //                 sgx_status
-        //             ))
-        //         }
-        //     };
-        // }
         let sgx_status = unsafe {
             aes_xts_128bit_128bit_KEK_decryption(
-                self.sgx_environment.eid(),
+                self.sgx_environment_id,
                 &self.kek,
                 ciphertext.as_ptr(),
                 ciphertext.len(),
