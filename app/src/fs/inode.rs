@@ -12,23 +12,41 @@ use super::{filekind::FileKind, DIRECT_POINTERS};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Inode {
+    /// underlying disk block size
     pub block_size: u32,
+    /// This inode's id
     pub inode_number: u64,
+    /// how many processes are opening this file
     pub open_file_handles: u64,
+    /// file size
     pub file_size: u64,
+    /// file mode
     pub mode: u16,
+    /// file hard link count
     pub hard_links: u32,
+    /// file owner uid
     pub user_id: libc::uid_t,
+    /// file owner gid
     pub group_id: libc::gid_t,
+    /// file block count
     pub block_count: u32,
+    /// file type
     pub file_kind: FileKind,
+    /// file creation time
     pub created_at: TimeDurationStruct,
+    /// file last access time
     pub accessed_at: Option<TimeDurationStruct>,
+    /// file last modification time
     pub modified_at: Option<TimeDurationStruct>,
+    /// file last metadata change time
     pub metadata_changed_at: Option<TimeDurationStruct>,
+    /// direct block pointers
     pub direct_blocks: [u32; DIRECT_POINTERS as usize],
+    /// indirect block pointer
     pub indirect_block: u32,
+    /// double indirect block pointer
     pub double_indirect_block: u32,
+    /// inode digest(currently use [blake3])
     pub digest: [u8; 32],
 }
 
@@ -181,7 +199,7 @@ impl Inode {
 
 impl Inode {
     /// Get the size of the inode in memory
-    /// #Example
+    /// # Example
     /// ```
     /// use filesystem::Inode;
     /// let size = Inode::inode_size_in_memory();
@@ -191,7 +209,7 @@ impl Inode {
         std::mem::size_of::<Inode>()
     }
     /// Get the size of the inode in disk
-    /// #Example
+    /// # Example
     /// ```
     /// use filesystem::Inode;
     /// let size = Inode::inode_size_in_disk();

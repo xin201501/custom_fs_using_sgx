@@ -4,16 +4,21 @@ use anyhow::anyhow;
 use bitvec::prelude::*;
 
 use crate::utils::*;
-
+/// the structure of a block group
 #[derive(Debug, Default)]
 pub struct Group {
+    /// data block bitmap
     pub data_bitmap: BitVec<u8, Lsb0>,
+    /// inode bitmap
     pub inode_bitmap: BitVec<u8, Lsb0>,
+    /// next free inode
     next_inode: Option<usize>,
+    /// next free data block
     next_data_block: Option<usize>,
 }
 /// for serialize and deserialize
 impl Group {
+    /// serialize block group to disk
     pub fn serialize_into<W>(mut w: W, block_size: u32, groups: &[Group]) -> anyhow::Result<()>
     where
         W: Write + Seek,
@@ -38,7 +43,7 @@ impl Group {
 
         Ok(())
     }
-
+    /// deserialize block group from disk
     pub fn deserialize_from<R>(
         mut r: R,
         _inode_count: u64,
@@ -67,6 +72,7 @@ impl Group {
     }
 }
 impl Group {
+    /// create a new block group
     pub fn new(inode_bitmap: BitVec<u8, Lsb0>, data_bitmap: BitVec<u8, Lsb0>) -> Self {
         let mut group = Group {
             inode_bitmap,
@@ -83,14 +89,14 @@ impl Group {
 /// for inode and data block allocation
 impl Group {
     /// check if inode exists
-    /// # Params
+    /// # Parameters
     /// - `i`: inode index,start at 1
     pub fn has_inode(&self, i: usize) -> bool {
         self.inode_bitmap.get(i - 1).as_deref().unwrap_or(&false) == &true
     }
 
     /// check if data block exists
-    /// # Params
+    /// # Parameters
     /// - `i`: data block index,start at 1
     pub fn has_data_block(&self, i: usize) -> bool {
         self.data_bitmap.get(i - 1).as_deref().unwrap_or(&false) == &true
@@ -125,7 +131,7 @@ impl Group {
     }
 
     /// release data block
-    /// # Params
+    /// # Parameters
     /// - `index`: data block index,start at 1
     pub fn release_data_block(&mut self, index: usize) {
         self.data_bitmap.set(index - 1, false);
@@ -133,7 +139,7 @@ impl Group {
     }
 
     /// release inode
-    /// # Params
+    /// # Parameters
     /// - `index`: inode index,start at 1
     pub fn release_inode(&mut self, index: usize) {
         self.inode_bitmap.set(index - 1, false);
