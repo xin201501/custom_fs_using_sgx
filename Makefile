@@ -65,7 +65,8 @@ CUSTOM_BIN_PATH := ./bin
 CUSTOM_SYSROOT_PATH := ./sysroot
 CUSTOM_EDL_PATH := $(ROOT_DIR)/sgx_edl/edl
 CUSTOM_COMMON_PATH := $(ROOT_DIR)/common
-
+OUR_EDL_PATH := enclave
+OUR_EDL_FILES := $(shell find $(OUR_EDL_PATH) -type f -name '*.edl')
 ######## EDL Settings ########
 
 Enclave_EDL_Files := enclave/enclave_t.c enclave/enclave_t.h app/enclave_u.c app/enclave_u.h
@@ -129,9 +130,9 @@ all: $(Enclave_EDL_Files) $(App_Name) $(RustEnclave_Signed_Name)
 
 ######## EDL Objects ########
 
-$(Enclave_EDL_Files): $(SGX_EDGER8R) enclave/enclave.edl
-	$(SGX_EDGER8R) $(SGX_EDGER8R_MODE) --trusted enclave/enclave.edl --search-path $(CUSTOM_COMMON_PATH)/inc --search-path $(CUSTOM_EDL_PATH) --trusted-dir enclave
-	$(SGX_EDGER8R) $(SGX_EDGER8R_MODE) --untrusted enclave/enclave.edl --search-path $(CUSTOM_COMMON_PATH)/inc --search-path $(CUSTOM_EDL_PATH) --untrusted-dir app
+$(Enclave_EDL_Files): $(SGX_EDGER8R) enclave/enclave.edl $(OUR_EDL_FILES)
+	$(SGX_EDGER8R) $(SGX_EDGER8R_MODE) --trusted enclave/enclave.edl --search-path $(CUSTOM_COMMON_PATH)/inc --search-path $(CUSTOM_EDL_PATH) --search-path $(OUR_EDL_PATH) --trusted-dir enclave
+	$(SGX_EDGER8R) $(SGX_EDGER8R_MODE) --untrusted enclave/enclave.edl --search-path $(CUSTOM_COMMON_PATH)/inc --search-path $(CUSTOM_EDL_PATH) --search-path $(OUR_EDL_PATH) --untrusted-dir app
 	@echo "GEN => $(Enclave_EDL_Files)"
 
 ######## App Objects ########

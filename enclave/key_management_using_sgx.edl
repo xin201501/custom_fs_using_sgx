@@ -1,0 +1,12 @@
+enclave{
+    trusted {
+        public void create_user_kek(
+            uint16_t user_id,
+            [in,size=user_password_len] uint8_t* user_password,
+            size_t user_password_len,
+            [out] uint8_t user_kek[16]
+        );
+        public void test_argon2_kdf();
+        public void run_key_management_rust_abi_tests();
+    };
+};

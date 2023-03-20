@@ -1,9 +1,8 @@
 //! This module contains the encryption manager for [aes] [xts_mode] encryption and decryption
+use once_cell::sync::OnceCell;
 use sgx_types::{error::SgxStatus, types::EnclaveId};
 use sgx_urts::enclave::SgxEnclave;
 use std::path::Path;
-pub const DEFAULT_ENCLAVE_PATH: &str = "../bin/enclave.signed.so";
-use once_cell::sync::OnceCell;
 /// The global sgx environment
 static GLOBAL_SGX_ENCRYPT_ENV: OnceCell<SgxEnclave> = OnceCell::new();
 
@@ -122,6 +121,8 @@ impl SGXEncryptionManager {
 
 #[cfg(test)]
 mod tests {
+    use crate::sgx_components::DEFAULT_ENCLAVE_PATH;
+
     use super::*;
     #[test]
     fn test_aes_xts_128bit_128bit_kek_encryption_and_decryption() -> anyhow::Result<()> {

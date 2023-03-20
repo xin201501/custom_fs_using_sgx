@@ -5,7 +5,7 @@ use std::io::Seek;
 use std::io::{ErrorKind, IoSlice, IoSliceMut, SeekFrom, Write};
 
 use crate::sgx_components::encryption::SGXEncryptionManager;
-use crate::sgx_components::encryption::DEFAULT_ENCLAVE_PATH;
+use crate::sgx_components::DEFAULT_ENCLAVE_PATH;
 /// cursor struct
 #[derive(Debug, Default)]
 pub struct TDECursor<T> {

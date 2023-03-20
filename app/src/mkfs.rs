@@ -62,7 +62,6 @@ where
 
     let file_mmap_area = unsafe { MmapMut::map_mut(&file)? };
     let mut cursor = TDECursor::new(file_mmap_area, block_size as u64, [1u8; 32]);
-    // let mut buf = BufWriter::new(&file);
     // write superblock to the image file
     let zeros = vec![0u8; file_len as usize];
     cursor.write_all(&zeros)?;
