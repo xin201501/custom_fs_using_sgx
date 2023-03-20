@@ -1,10 +1,10 @@
-use anyhow::Ok;
+//! This module contains the encryption manager for [aes] [xts_mode] encryption and decryption
 use sgx_types::{error::SgxStatus, types::EnclaveId};
 use sgx_urts::enclave::SgxEnclave;
 use std::path::Path;
 pub const DEFAULT_ENCLAVE_PATH: &str = "../bin/enclave.signed.so";
 use once_cell::sync::OnceCell;
-
+/// The global sgx environment
 static GLOBAL_SGX_ENCRYPT_ENV: OnceCell<SgxEnclave> = OnceCell::new();
 
 extern "C" {
@@ -27,13 +27,25 @@ extern "C" {
         plaintext: *mut u8,
     ) -> SgxStatus;
 }
+/// [aes] [xts_mode] encryption and decryption manager
 pub struct SGXEncryptionManager {
+    /// sgx environment id, used to call enclave functions.
+    /// we use **a global sgx environment** to avoid creating a new enclave for each encryption/decryption
     sgx_environment_id: EnclaveId,
+    /// The key encryption key
     kek: [u8; 16],
+    /// The disk sector size
     sector_size: usize,
 }
 
 impl SGXEncryptionManager {
+    /// Create a new encryption manager
+    /// # Parameters
+    /// * `enclave_file_path` - The path to the enclave file
+    /// * `kek` - The key encryption key
+    /// * `sector_size` - The disk sector size
+    /// # Returns
+    /// * `Ok(Self)` - If the encryption manager was created successfully
     pub fn new(
         enclave_file_path: impl AsRef<Path>,
         kek: [u8; 16],
@@ -51,6 +63,7 @@ impl SGXEncryptionManager {
 }
 
 impl SGXEncryptionManager {
+    /// Encrypt a buffer using [aes] [xts_mode] with **128bit** block and **128bit** KEK
     pub fn sgx_aes_xts_128bit_128bit_kek_encryption(
         &self,
         plaintext: &[u8],
@@ -77,7 +90,7 @@ impl SGXEncryptionManager {
             )),
         }
     }
-
+    /// Decrypt a buffer using [aes] [xts_mode] with **128bit** block and **128bit** KEK
     pub fn sgx_aes_xts_128bit_128bit_kek_decryption(
         &self,
         ciphertext: &[u8],
@@ -114,7 +127,7 @@ mod tests {
     fn test_aes_xts_128bit_128bit_kek_encryption_and_decryption() -> anyhow::Result<()> {
         // create an enclave
         let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
-        let mut plaintext = [5; 0x400];
+        let mut plaintext = [5; 1024];
         let mut ciphertext = [0u8; 1024];
 
         let sector_size = 0x200;
@@ -164,6 +177,63 @@ mod tests {
         };
 
         assert_eq!(plaintext, [5; 0x400]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_aes_xts_128bit_128bit_kek_is_non_deterministic_encryption() -> anyhow::Result<()> {
+        let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
+        let plaintext = [5; 1024];
+        let mut ciphertext1 = [0u8; 1024];
+
+        let sector_size = 0x200;
+        let first_sector_index1 = 0;
+        let mut sgx_status = unsafe {
+            aes_xts_128bit_128bit_KEK_encryption(
+                enclave.eid(),
+                &[0u8; 16],
+                plaintext.as_ptr(),
+                plaintext.len(),
+                sector_size,
+                first_sector_index1,
+                ciphertext1.as_mut_ptr(),
+            )
+        };
+
+        match sgx_status {
+            SgxStatus::Success => (),
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "enclave run failed with status: {:?}",
+                    sgx_status
+                ))
+            }
+        };
+        // use another sector index to encrypt the same plaintext
+        let first_sector_index2 = 1;
+        let mut ciphertext2 = [0u8; 1024];
+        sgx_status = unsafe {
+            aes_xts_128bit_128bit_KEK_encryption(
+                enclave.eid(),
+                &[0u8; 16],
+                plaintext.as_ptr(),
+                plaintext.len(),
+                sector_size,
+                first_sector_index2,
+                ciphertext2.as_mut_ptr(),
+            )
+        };
+
+        match sgx_status {
+            SgxStatus::Success => (),
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "enclave run failed with status: {:?}",
+                    sgx_status
+                ))
+            }
+        };
+        assert_ne!(ciphertext1, ciphertext2);
         Ok(())
     }
 }
