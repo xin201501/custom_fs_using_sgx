@@ -68,17 +68,17 @@ mod tests {
         let status = unsafe { test_argon2_kdf(enclave.eid()) };
         match status {
             SgxStatus::Success => Ok(()),
-            _ => Err(anyhow::anyhow!("sgx error")),
+            _ => Err(anyhow::anyhow!("test_failed")),
         }
     }
     #[test]
     fn sgx_key_management_rust_api_tests() -> anyhow::Result<()> {
         //create an enclave
         let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
-        let status = unsafe { run_key_management_rust_api_tests(enclave.eid()) };
-        match status {
+        let test_driver_run_status = unsafe { run_key_management_rust_api_tests(enclave.eid()) };
+        match test_driver_run_status {
             SgxStatus::Success => Ok(()),
-            _ => Err(anyhow::anyhow!("sgx error")),
+            _ => Err(anyhow::anyhow!("test_failed")),
         }
     }
 
@@ -86,10 +86,10 @@ mod tests {
     fn sgx_key_management_c_api_tests() -> anyhow::Result<()> {
         //create an enclave
         let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
-        let status = unsafe { run_key_management_c_api_tests(enclave.eid()) };
-        match status {
+        let test_driver_run_status = unsafe { run_key_management_c_api_tests(enclave.eid()) };
+        match test_driver_run_status {
             SgxStatus::Success => Ok(()),
-            _ => Err(anyhow::anyhow!("sgx error")),
+            _ => Err(anyhow::anyhow!("test failed")),
         }
     }
 }

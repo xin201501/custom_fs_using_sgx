@@ -275,9 +275,13 @@ pub unsafe extern "C" fn run_key_management_c_api_tests() {
     };
 
     init_kek_manager(test_file_path_in_c.as_ptr());
-    run_unit_tests!(
+    let failed_tests_amount = run_unit_tests!(
         test_create_user_kek,
         test_lookup_user_kek,
         test_update_user_kek
     );
+
+    if failed_tests_amount > 0 {
+        panic!("{} test(s) failed!", failed_tests_amount);
+    }
 }
