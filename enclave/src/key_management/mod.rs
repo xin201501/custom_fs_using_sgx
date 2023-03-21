@@ -1,9 +1,9 @@
 use sgx_serialize::{Deserialize, Serialize};
 use std::collections::HashMap;
-mod c_abi;
-mod rust_abi;
-pub use c_abi::*;
-pub use rust_abi::*;
+mod c_api;
+mod rust_api;
+pub use c_api::*;
+pub use rust_api::*;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct KekManager {

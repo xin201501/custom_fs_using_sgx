@@ -1,5 +1,5 @@
 //! This module is about KEK creation and replacement
-use std::{collections::HashMap, ffi::c_char};
+use std::ffi::c_char;
 
 use super::DEFAULT_ENCLAVE_PATH;
 use once_cell::sync::OnceCell;
@@ -55,7 +55,8 @@ impl KeyManager {
 #[cfg(test)]
 mod tests {
     extern "C" {
-        fn run_key_management_rust_abi_tests(eid: EnclaveId) -> SgxStatus;
+        fn run_key_management_rust_api_tests(eid: EnclaveId) -> SgxStatus;
+        fn run_key_management_c_api_tests(eid: EnclaveId) -> SgxStatus;
         fn test_argon2_kdf(eid: EnclaveId) -> SgxStatus;
     }
     use super::*;
@@ -71,10 +72,21 @@ mod tests {
         }
     }
     #[test]
-    fn sgx_key_management_rust_abi_tests() -> anyhow::Result<()> {
+    fn sgx_key_management_rust_api_tests() -> anyhow::Result<()> {
         //create an enclave
         let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
-        let status = unsafe { run_key_management_rust_abi_tests(enclave.eid()) };
+        let status = unsafe { run_key_management_rust_api_tests(enclave.eid()) };
+        match status {
+            SgxStatus::Success => Ok(()),
+            _ => Err(anyhow::anyhow!("sgx error")),
+        }
+    }
+
+    #[test]
+    fn sgx_key_management_c_api_tests() -> anyhow::Result<()> {
+        //create an enclave
+        let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
+        let status = unsafe { run_key_management_c_api_tests(enclave.eid()) };
         match status {
             SgxStatus::Success => Ok(()),
             _ => Err(anyhow::anyhow!("sgx error")),

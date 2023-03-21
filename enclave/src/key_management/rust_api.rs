@@ -4,7 +4,7 @@ use argon2::Argon2;
 use sgx_serialize::opaque;
 use sgx_tseal::seal::UnsealedData;
 use sgx_unit_test::run_unit_tests;
-use std::{fs::OpenOptions, path::Path};
+use std::{fs::File, path::Path};
 
 impl KekManager {
     pub fn new(kek_path: impl AsRef<Path>) -> anyhow::Result<Self> {
@@ -18,7 +18,7 @@ impl KekManager {
             opaque::decode(unsealed_bytes.to_plaintext()).ok_or(anyhow!("decode error!"))
         } else {
             // create kek file
-            OpenOptions::new().create(true).open(kek_path)?;
+            File::create(kek_path)?;
             Ok(Self::default())
         }
     }
@@ -121,7 +121,7 @@ fn test_kek_manager_update() -> anyhow::Result<()> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn run_key_management_rust_abi_tests() {
+pub unsafe extern "C" fn run_key_management_rust_api_tests() {
     run_unit_tests!(
         test_kek_manager_init,
         test_kek_manager_lookup,
