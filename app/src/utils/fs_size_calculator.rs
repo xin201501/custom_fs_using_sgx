@@ -3,7 +3,7 @@
 use crate::fs::INODE_SIZE;
 
 /// calculate needed Inode Bitmap size
-/// # Arguments
+/// # Parameters
 /// - `inode_count`: the number of inodes
 /// # Return
 /// the size of the Inode Bitmap
@@ -19,7 +19,7 @@ pub const fn bitmap_size(element_count: u32) -> u64 {
 }
 
 /// calculate needed Inode Table size
-/// # Arguments
+/// # Parameters
 /// - `inode_count`: the number of inodes
 /// # Return
 /// the size of the Inode Table
@@ -35,7 +35,7 @@ pub const fn inode_table_size(block_size: u32) -> u32 {
 }
 
 /// caculate block group size
-/// # Arguments
+/// # Parameters
 /// - `blk_count`: the number of blocks
 /// # Return
 /// the size of a block group
@@ -53,7 +53,7 @@ pub const fn block_group_size(block_size: u32) -> u64 {
             data_table_size(block_size) as u64
 }
 /// calculate data table size
-/// # Arguments
+/// # Parameters
 /// - `blk_size`: the size of a block
 /// # Return
 /// the size of the data table
