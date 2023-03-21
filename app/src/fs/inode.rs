@@ -40,6 +40,8 @@ pub struct Inode {
     pub modified_at: Option<TimeDurationStruct>,
     /// file last metadata change time
     pub metadata_changed_at: Option<TimeDurationStruct>,
+    /// wrapped file_encryption_key
+    pub wrapped_file_encryption_key: [u8; 16],
     /// direct block pointers
     pub direct_blocks: [u32; DIRECT_POINTERS as usize],
     /// indirect block pointer
@@ -203,7 +205,7 @@ impl Inode {
     /// ```
     /// use filesystem::Inode;
     /// let size = Inode::inode_size_in_memory();
-    /// assert_eq!(size, 224);
+    /// assert_eq!(size, 240);
     /// ```
     pub const fn inode_size_in_memory() -> usize {
         std::mem::size_of::<Inode>()
@@ -213,7 +215,7 @@ impl Inode {
     /// ```
     /// use filesystem::Inode;
     /// let size = Inode::inode_size_in_disk();
-    /// assert_eq!(size, 153);
+    /// assert_eq!(size, 169);
     /// ```
     pub fn inode_size_in_disk() -> usize {
         let mut inode = Inode::default();

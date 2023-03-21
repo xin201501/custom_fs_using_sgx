@@ -2,7 +2,7 @@ use super::KekManager;
 use anyhow::anyhow;
 use argon2::Argon2;
 use sgx_serialize::opaque;
-use sgx_tseal::seal::{SealedData, UnsealedData};
+use sgx_tseal::seal::UnsealedData;
 use sgx_unit_test::run_unit_tests;
 use std::{fs::File, path::Path};
 
@@ -29,17 +29,6 @@ impl KekManager {
                 keks: Default::default(),
             })
         }
-    }
-}
-/// write keks in [KekManager] to underlying file
-impl Drop for KekManager {
-    fn drop(&mut self) {
-        let encoded_keks = opaque::encode(&self.keks).expect("encode error!");
-        let sealed_keks =
-            SealedData::<[u8]>::seal(encoded_keks.as_slice(), None).expect("seal failed!");
-
-        std::fs::write(&self.kek_path, sealed_keks.into_bytes().unwrap())
-            .expect("write kek file failed!");
     }
 }
 

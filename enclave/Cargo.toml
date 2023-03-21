@@ -43,3 +43,7 @@ anyhow = "1.0.70"
 once_cell = "1.17.1"
 sgx_unit_test = { path = "../../../sgx_tests/unit" }
 sgx_ffi = { path = "../../../sgx_ffi", features = ["unit_test"] }
+sgx_rand = { path = "../../../sgx_rand" }
+sgx_crypto = {path = "../../../sgx_crypto"}
+arx-kw = { version = "0.3.0", features = ["nightly"] }
+hex = "0.4.3"

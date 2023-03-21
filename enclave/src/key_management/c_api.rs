@@ -7,21 +7,23 @@ use std::{
 
 use argon2::Argon2;
 use once_cell::sync::OnceCell;
+use sgx_rand::Rng;
 use sgx_serialize::opaque;
-use sgx_tseal::seal::UnsealedData;
+use sgx_tseal::seal::{SealedData, UnsealedData};
 use sgx_types::error::SgxStatus;
 use sgx_unit_test::run_unit_tests;
 
-use super::KekManager;
+use super::{wrap_key, KekManager};
 
 static GLOBAL_KEK_MANAGER_FOR_APP: OnceCell<RwLock<KekManager>> = OnceCell::new();
-
+static GLOBAL_KEK_MANAGER_PATH: OnceCell<String> = OnceCell::new();
 #[no_mangle]
 pub extern "C" fn init_kek_manager(kek_path: *const c_char) {
     let kek_path = unsafe { CStr::from_ptr(kek_path) };
     let kek_path = kek_path.to_str().expect("to str failed!");
-    let kek_path = Path::new(kek_path);
+    GLOBAL_KEK_MANAGER_PATH.get_or_init(|| kek_path.to_string());
 
+    let kek_path = Path::new(kek_path);
     GLOBAL_KEK_MANAGER_FOR_APP.get_or_init(|| {
         if kek_path.exists() {
             // read keks from file
@@ -43,18 +45,30 @@ pub extern "C" fn init_kek_manager(kek_path: *const c_char) {
 /// lookup a kek
 /// # Safety
 /// **must call [init_kek_manager] first** to use this function
-#[no_mangle]
-pub unsafe extern "C" fn lookup_user_kek(user_id: u16, kek: &mut [u8; 16]) {
+fn lookup_user_kek(user_id: u16) -> Option<[u8; 16]> {
     let lock = GLOBAL_KEK_MANAGER_FOR_APP
         .get()
         .expect("init_kek_manager must be called first!")
         .read()
         .unwrap();
-    let result = lock
-        .keks_ref()
-        .get(&user_id)
-        .expect("{user_id}'s kek doesn't exist");
-    kek.copy_from_slice(result);
+    lock.keks_ref().get(&user_id).copied()
+}
+fn check_user_kek(user_id: u16, claimed_user_password: &[u8]) -> (bool, Option<[u8; 16]>) {
+    let kek = lookup_user_kek(user_id);
+    match kek {
+        None => (false, None),
+        Some(kek) => {
+            let binding = blake3::hash(&user_id.to_be_bytes());
+            let salt = binding.as_bytes();
+            let argon2 = Argon2::default();
+            let mut calculated_kek = [0u8; 16];
+            argon2
+                .hash_password_into(claimed_user_password, salt, &mut calculated_kek)
+                .expect("hash password failed!");
+
+            (kek == calculated_kek, Some(calculated_kek))
+        }
+    }
 }
 /// create user kek using `user_id` and `user_password`
 /// # Parameters
@@ -116,7 +130,7 @@ pub unsafe extern "C" fn update_user_kek(
     old_password_len: usize,
     new_password: *const u8,
     new_password_len: usize,
-) -> bool {
+) -> SgxStatus {
     let old_password = unsafe { core::slice::from_raw_parts(old_password, old_password_len) };
     let mut calculated_old_kek = [0u8; 16];
     let argon2 = Argon2::default();
@@ -133,7 +147,7 @@ pub unsafe extern "C" fn update_user_kek(
         .unwrap();
     let kek_map = lock.keks_mut();
     if kek_map.get(&user_id) != Some(&calculated_old_kek) {
-        return false;
+        return SgxStatus::InvalidParameter;
     }
     let new_password = unsafe { core::slice::from_raw_parts(new_password, new_password_len) };
     let mut new_kek = [0u8; 16];
@@ -143,18 +157,55 @@ pub unsafe extern "C" fn update_user_kek(
     // update kek
     // `insert` method will replace the old value if the key already exists
     kek_map.insert(user_id, new_kek);
-    true
+    SgxStatus::Success
 }
 
-/// ref: https://docs.rs/argon2/0.5.0/argon2
 #[no_mangle]
-pub extern "C" fn test_argon2_kdf() {
-    let password = b"hunter42"; // Bad password; don't actually use!
-    let salt = b"example salt"; // Salt should be unique per password
-    let mut output_key_material = [0u8; 32]; // Can be any desired size
-    Argon2::default()
-        .hash_password_into(password, salt, &mut output_key_material)
+pub extern "C" fn save_kek_manager() {
+    let lock = GLOBAL_KEK_MANAGER_FOR_APP
+        .get()
+        .expect("init_kek_manager must be called first")
+        .write()
         .unwrap();
+    let keks = lock.keks_ref();
+    let encoded_keks = opaque::encode(keks).expect("encode error!");
+    let sealed_keks =
+        SealedData::<[u8]>::seal(encoded_keks.as_slice(), None).expect("seal failed!");
+
+    std::fs::write(
+        &GLOBAL_KEK_MANAGER_PATH.get().unwrap(),
+        sealed_keks.into_bytes().unwrap(),
+    )
+    .expect("write kek file failed!");
+}
+
+#[no_mangle]
+pub extern "C" fn generate_random_wrapped_key(
+    user_id: u16,
+    password: *const u8,
+    password_len: usize,
+    wrapped_key: &mut [u8; 16],
+) -> SgxStatus {
+    let claimed_user_password = unsafe { core::slice::from_raw_parts(password, password_len) };
+    let check_user_kek_result = check_user_kek(user_id, claimed_user_password);
+
+    if !check_user_kek_result.0 {
+        return SgxStatus::InvalidParameter;
+    }
+    match check_user_kek_result.1 {
+        Some(user_kek) => {
+            let mut rng = sgx_rand::thread_rng();
+            let mut random_key = [0u8; 16];
+            rng.fill_bytes(&mut random_key);
+
+            // TODO: key wrapping
+            match wrap_key::wrap_key(&user_kek, &random_key, wrapped_key) {
+                Ok(_) => SgxStatus::Success,
+                Err(_) => SgxStatus::Unexpected,
+            }
+        }
+        None => SgxStatus::InvalidParameter,
+    }
 }
 
 // test create user kek
@@ -210,11 +261,8 @@ fn test_lookup_user_kek() {
         .unwrap();
     lock.keks_mut().insert(user_id, user_kek);
     drop(lock);
-    let mut fetched_user_kek = [0u8; 16];
-    unsafe {
-        lookup_user_kek(user_id, &mut fetched_user_kek);
-    }
-    assert_eq!(user_kek, fetched_user_kek);
+    let fetched_user_kek = unsafe { lookup_user_kek(user_id) };
+    assert_eq!(Some(user_kek), fetched_user_kek);
 }
 
 fn test_update_user_kek() {
@@ -230,7 +278,7 @@ fn test_update_user_kek() {
                 user_password.as_ptr(),
                 user_password.len()
             ),
-            false
+            SgxStatus::InvalidParameter
         );
     }
     // create user kek
@@ -247,7 +295,7 @@ fn test_update_user_kek() {
                 user_password.as_ptr(),
                 user_password.len()
             ),
-            false
+            SgxStatus::InvalidParameter
         );
     }
     // if user inputs the correct password, update will succeed
@@ -260,9 +308,31 @@ fn test_update_user_kek() {
                 "new_password".as_ptr(),
                 "new_password".len()
             ),
-            true
+            SgxStatus::Success
         );
     }
+}
+
+fn test_save_user_kek() {
+    let mut lock = GLOBAL_KEK_MANAGER_FOR_APP
+        .get()
+        .expect("init_kek_manager must be called first")
+        .write()
+        .unwrap();
+    let keks = lock.keks_mut();
+    keks.clear();
+    keks.insert(1, [1u8; 16]);
+    keks.insert(2, [2u8; 16]);
+    keks.insert(3, [3u8; 16]);
+    drop(lock);
+
+    save_kek_manager();
+    let kek_manager = KekManager::new(&GLOBAL_KEK_MANAGER_PATH.get().unwrap()).unwrap();
+    let keks = kek_manager.keks_ref();
+    assert_eq!(keks.len(), 3);
+    assert_eq!(keks.get(&1), Some(&[1u8; 16]));
+    assert_eq!(keks.get(&2), Some(&[2u8; 16]));
+    assert_eq!(keks.get(&3), Some(&[3u8; 16]));
 }
 
 #[no_mangle]
@@ -278,7 +348,8 @@ pub unsafe extern "C" fn run_key_management_c_api_tests() {
     let failed_tests_amount = run_unit_tests!(
         test_create_user_kek,
         test_lookup_user_kek,
-        test_update_user_kek
+        test_update_user_kek,
+        test_save_user_kek
     );
 
     if failed_tests_amount > 0 {
