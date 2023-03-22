@@ -12,16 +12,14 @@ pub struct TDECursor<T> {
     inner: T,
     pos: u64,
     block_size: u64,
-    key: [u8; 32],
 }
 impl<T> TDECursor<T> {
     /// creates a new TDECursor with the [block_size] and [given key]
-    pub fn new(inner: T, block_size: u64, key: [u8; 32]) -> Self {
+    pub fn new(inner: T, block_size: u64) -> Self {
         Self {
             inner,
             pos: 0,
             block_size,
-            key,
         }
     }
     /// get underlying buffer
@@ -109,7 +107,6 @@ where
         Self {
             inner: self.inner.clone(),
             pos: self.pos,
-            key: self.key,
             block_size: self.block_size,
         }
     }
@@ -118,7 +115,6 @@ where
     fn clone_from(&mut self, other: &Self) {
         self.inner.clone_from(&other.inner);
         self.pos = other.pos;
-        self.key = other.key;
         self.block_size = other.block_size;
     }
 }
@@ -177,11 +173,10 @@ where
         //     first_sector_index as u128,
         //     xts_mode::get_tweak_default,
         // );
-        let decryption_manager =
-            SGXEncryptionManager::new(DEFAULT_ENCLAVE_PATH, [0; 16], sector_size)
-                .expect("create encryption manager failed");
+        let decryption_manager = SGXEncryptionManager::new(DEFAULT_ENCLAVE_PATH, sector_size)
+            .expect("create encryption manager failed");
         let plain_text_area = decryption_manager
-            .sgx_aes_xts_128bit_128bit_kek_decryption(related_cipher_text_area, first_sector_index)
+            .sgx_aes_xts_128bit_key_in_sgx_decryption(related_cipher_text_area, first_sector_index)
             .expect("decrypt failed");
         let pos_offset_in_block = (pos % self.block_size) as usize;
         let bytes_read = std::io::Read::read(&mut &plain_text_area[pos_offset_in_block..], buf)?;
@@ -220,11 +215,10 @@ where
         let first_sector_index = cipher_text_block_start_offset / self.block_size;
 
         // decrypt old cipher text
-        let decryption_manager =
-            SGXEncryptionManager::new(DEFAULT_ENCLAVE_PATH, [0; 16], sector_size)
-                .expect("create encryption manager failed");
+        let decryption_manager = SGXEncryptionManager::new(DEFAULT_ENCLAVE_PATH, sector_size)
+            .expect("create encryption manager failed");
         let plain_text_area = decryption_manager
-            .sgx_aes_xts_128bit_128bit_kek_decryption(related_cipher_text_area, first_sector_index)
+            .sgx_aes_xts_128bit_key_in_sgx_decryption(related_cipher_text_area, first_sector_index)
             .expect("decrypt failed");
         // dbg!(bytes_read_offset);
 
@@ -266,10 +260,10 @@ where
         let sector_size = self.block_size as usize;
         let first_sector_index = old_cipher_text_block_start_offset / self.block_size;
         let encryption_decryption_manager =
-            SGXEncryptionManager::new(DEFAULT_ENCLAVE_PATH, [0; 16], sector_size)
+            SGXEncryptionManager::new(DEFAULT_ENCLAVE_PATH, sector_size)
                 .expect("create encryption manager failed");
         let mut old_plaintext = encryption_decryption_manager
-            .sgx_aes_xts_128bit_128bit_kek_decryption(old_cipher_text_area, first_sector_index)
+            .sgx_aes_xts_128bit_key_in_sgx_decryption(old_cipher_text_area, first_sector_index)
             .expect("decrypt failed");
 
         // replace the outdated part with new plain text
@@ -279,7 +273,7 @@ where
 
         // encrypt the whole blocks again
         let new_plaintext_encrypted = encryption_decryption_manager
-            .sgx_aes_xts_128bit_128bit_kek_encryption(&old_plaintext, first_sector_index)
+            .sgx_aes_xts_128bit_key_in_sgx_encryption(&old_plaintext, first_sector_index)
             .expect("encrypt failed");
 
         // write back to image file
@@ -327,12 +321,18 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        sgx_components::key_management::DEFAULT_KEK_MANAGER_PATH,
+        utils::init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH},
+    };
+
     use super::*;
     use std::io::{Read, Seek, Write};
     /// test if the data has ever been encrypted
     #[test]
     fn test_encryption() {
-        let mut cursor = TDECursor::new([0u8; 1024], 512, [4u8; 32]);
+        init_test_environment("/tmp/b", DEFAULT_KEY_MANAGER_PATH,101);
+        let mut cursor = TDECursor::new([0u8; 1024], 512);
         cursor.seek(SeekFrom::Start(0)).unwrap();
         let buf = vec![0u8; 1024];
         cursor.write_all(&buf).unwrap();
@@ -342,9 +342,10 @@ mod tests {
     /// test if the data can transparently be encrypted and decrypted
     #[test]
     fn test_transparent_encryption() {
+        init_test_environment("/tmp/a",DEFAULT_KEY_MANAGER_PATH,150);
         // test case 1, write 512 bytes at offset 512
         // test write [BLOCK_SIZE] contents to [BLOCK SIZE] offset
-        let mut cursor = TDECursor::new([0u8; 1024], 512, [4u8; 32]);
+        let mut cursor = TDECursor::new([0u8; 1024], 512);
         cursor.seek(SeekFrom::Start(512)).unwrap();
         let bytes_written = cursor.write(&[1u8; 512]).unwrap();
         assert_eq!(bytes_written, 512);

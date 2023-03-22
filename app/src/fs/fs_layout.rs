@@ -37,7 +37,7 @@ impl MyFS {
     /// # Return
     /// an [anyhow::Result] type,\
     /// which contains a [MyFS] instance if the operation is successful
-    pub fn new<P>(image_path: P, block_size: u32, master_key: [u8; 32]) -> anyhow::Result<Self>
+    pub fn new<P>(image_path: P, block_size: u32) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -53,7 +53,7 @@ impl MyFS {
         // such as when the file is not open with read and write permissions.
         // from https://docs.rs/memmap2/0.5.10/memmap2/struct.MmapMut.html
         let file_mmap_area = unsafe { MmapMut::map_mut(&file)? };
-        let mut cursor = TDECursor::new(file_mmap_area, block_size as u64, master_key);
+        let mut cursor = TDECursor::new(file_mmap_area, block_size as u64);
 
         // read superblock
         let superblock = SuperBlock::deserialize_from(&mut cursor)?;
@@ -147,10 +147,9 @@ impl MyFS {
 impl MyFS {
     #[inline]
     pub(crate) fn save_inode(&mut self, inode: &mut Inode, index: u64) -> anyhow::Result<()> {
-        let (block_size, master_key) = (
-            self.superblock().block_size,
-            self.superblock().data_encryption_key,
-        );
+        let block_size = self.superblock().block_size;
+        // self.superblock().wrapped_data_encryption_key,
+
         inode.block_size = block_size;
         let offset = self.inode_seek_position(index);
         // let file = OpenOptions::new()
@@ -160,7 +159,7 @@ impl MyFS {
         // .open("")
         // let image_file_mmap = self.image_file_mmap_mut().as_mut();
         let cursor = self.image_file_mmap_mut();
-        let mut cursor = TDECursor::new(cursor, block_size as u64, master_key);
+        let mut cursor = TDECursor::new(cursor, block_size as u64);
         // locate this inode's position
         cursor.seek(SeekFrom::Start(offset))?;
         inode.update_modified_at();
@@ -183,12 +182,10 @@ impl MyFS {
             .ok_or_else(|| anyhow!("inode {index} has no data block"))?;
         let offset = self.data_block_seek_position(*data_block_index as u64);
 
-        let (block_size, master_key) = (
-            self.superblock().block_size,
-            self.superblock().data_encryption_key,
-        );
+        let block_size = self.superblock().block_size;
+
         let cursor = self.image_file_mmap_mut();
-        let mut cursor = TDECursor::new(cursor, block_size as u64, master_key);
+        let mut cursor = TDECursor::new(cursor, block_size as u64);
         cursor.seek(SeekFrom::Start(offset))?;
         cursor.write_all(serialized_dir.as_slice())?;
         anyhow::Ok(cursor.flush()?)
@@ -210,11 +207,8 @@ impl MyFS {
         // find inode physical location
         let offset = self.inode_seek_position(index);
         let cursor = self.image_file_mmap();
-        let (block_size, master_key) = (
-            self.superblock().block_size,
-            self.superblock().data_encryption_key,
-        );
-        let mut cursor = TDECursor::new(cursor, block_size as u64, master_key);
+        let block_size = self.superblock().block_size;
+        let mut cursor = TDECursor::new(cursor, block_size as u64);
         cursor
             .seek(SeekFrom::Start(offset))
             .map_err(|_| libc::EIO)?;
@@ -279,13 +273,9 @@ impl MyFS {
         {
             return Err(libc::ENOENT);
         }
-        let SuperBlock {
-            block_size,
-            data_encryption_key: master_key,
-            ..
-        } = self.superblock();
+        let SuperBlock { block_size, .. } = self.superblock();
         let cursor = self.image_file_mmap();
-        let mut cursor = TDECursor::new(cursor, *block_size as u64, *master_key);
+        let mut cursor = TDECursor::new(cursor, *block_size as u64);
         cursor
             .seek(SeekFrom::Start(self.data_block_seek_position(block as u64)))
             .map_err(|_| 4)?;
@@ -585,13 +575,10 @@ impl MyFS {
         block_index: u32,
     ) -> anyhow::Result<usize> {
         let block_offset = self.data_block_seek_position(block_index as u64);
-        let (block_size, master_key) = (
-            self.superblock().block_size,
-            self.superblock().data_encryption_key,
-        );
+        let block_size = self.superblock().block_size;
         let cursor = self.image_file_mmap_mut();
 
-        let mut cursor = TDECursor::new(cursor, block_size as u64, master_key);
+        let mut cursor = TDECursor::new(cursor, block_size as u64);
         cursor.seek(SeekFrom::Start(block_offset + offset))?;
         Ok(cursor.write(data)?)
     }
@@ -604,11 +591,7 @@ impl MyFS {
     ) -> anyhow::Result<usize> {
         let block_offset = self.data_block_seek_position(block_index as u64);
         let cursor = self.image_file_mmap();
-        let mut cursor = TDECursor::new(
-            cursor,
-            self.superblock().block_size as u64,
-            self.superblock().data_encryption_key,
-        );
+        let mut cursor = TDECursor::new(cursor, self.superblock().block_size as u64);
         cursor.seek(SeekFrom::Start(block_offset + offset))?;
 
         cursor.read_exact(data)?;
@@ -640,14 +623,21 @@ impl MyFS {
 #[cfg(test)]
 mod tests {
 
-    use crate::{mkfs::mkfs, utils::time_util::TimeDurationStruct};
+    use crate::{
+        mkfs::mkfs,
+        sgx_components::key_management::DEFAULT_KEK_MANAGER_PATH,
+        utils::{
+            init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH},
+            time_util::TimeDurationStruct,
+        },
+    };
 
     use super::*;
     #[test]
     fn test_inode_offsets() {
         // blocks per group = 8
         let fs = MyFS {
-            superblock: Some(SuperBlock::new(1024, 512, 3, 0, 0, [0u8; 32])),
+            superblock: Some(SuperBlock::new(1024, 512, 3, 0, 0)),
             ..MyFS::default()
         };
         const DATA_BLOCKS_PER_GROUP_U32: u32 = 512 * 8;
@@ -673,7 +663,7 @@ mod tests {
     }
     #[test]
     fn test_inode_seek_position() {
-        let superblock = SuperBlock::new(1024, 1024, 3, 0, 0, [0u8; 32]);
+        let superblock = SuperBlock::new(1024, 1024, 3, 0, 0);
         let fs = MyFS {
             superblock: Some(superblock),
             ..Default::default()
@@ -698,15 +688,16 @@ mod tests {
         let file_size = 100_000_000;
         let block_size = 1024;
         let inode_count = 1024;
+        let password = "123456";
         let tmp_file = Path::new("/tmp/test_metadata.img");
         if tmp_file.exists() {
-            std::fs::remove_file(tmp_file).expect("remove temp file failed,test won't run");
+            std::fs::remove_file(tmp_file).expect("remove tmp file failed");
         }
+        init_test_environment(DEFAULT_KEK_MANAGER_PATH, DEFAULT_KEY_MANAGER_PATH, 4);
 
-        mkfs(tmp_file, file_size, inode_count, block_size).expect("create fs failed");
+        mkfs(tmp_file, file_size, inode_count, block_size, password).expect("create fs failed");
 
-        let fs = MyFS::new(tmp_file, block_size, [1u8; 32])
-            .expect("create in memory MyFS instance failed!");
+        let fs = MyFS::new(tmp_file, block_size).expect("create in memory MyFS instance failed!");
         let (inode, inode_index) = fs
             .find_inode_from_path("/")
             .expect("find root directory failed!");
@@ -727,15 +718,18 @@ mod tests {
         let file_size = 100_000_000;
         let block_size = 2048;
         let inode_count = 3172;
+        let password = "123456";
         let tmp_file = Path::new("/tmp/test_find_dir.img");
         if tmp_file.exists() {
             std::fs::remove_file(tmp_file).expect("remove temp file failed,test won't run");
         }
 
-        mkfs(tmp_file, file_size, inode_count, block_size).expect("create test fs failed!");
+        init_test_environment(DEFAULT_KEK_MANAGER_PATH, DEFAULT_KEY_MANAGER_PATH, 8);
 
-        let fs = MyFS::new(tmp_file, block_size, [1u8; 32])
-            .expect("create in memory fs instance failed!");
+        mkfs(tmp_file, file_size, inode_count, block_size, password)
+            .expect("create test fs failed!");
+
+        let fs = MyFS::new(tmp_file, block_size).expect("create in memory fs instance failed!");
         assert!(fs.find_dir("/").is_ok());
         assert_eq!(fs.find_dir("/not-a-dir").err(), Some(libc::ENOENT));
 

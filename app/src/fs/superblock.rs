@@ -31,21 +31,12 @@ pub struct SuperBlock {
     pub data_blocks_per_group: u32,
     pub uid: libc::uid_t,
     pub gid: libc::gid_t,
-    /// master encryption key
-    pub data_encryption_key: [u8; 32],
     /// to verify the integrity of this superblock
     /// intend to use a fast secure hash function,like [blake3]
     pub digest: [u8; 32],
 }
 impl SuperBlock {
-    pub fn new(
-        inode_count: u64,
-        block_size: u32,
-        groups: u32,
-        uid: u32,
-        gid: u32,
-        master_key: [u8; 32],
-    ) -> Self {
+    pub fn new(inode_count: u64, block_size: u32, groups: u32, uid: u32, gid: u32) -> Self {
         let total_block_count = block_size as u64 * 8 * groups as u64;
         let now = time_util::now();
         let mut superblock = Self {
@@ -64,7 +55,6 @@ impl SuperBlock {
             free_blocks_count: total_block_count,
             data_blocks_per_group: block_size * 8, // 1 byte has 8 bits to store block index
             digest: [0u8; 32],
-            data_encryption_key: master_key,
         };
         superblock.digest();
         superblock
@@ -80,14 +70,14 @@ impl SuperBlock {
     }
 }
 
-/// change master key
-impl SuperBlock {
-    pub fn change_data_encryption_key(&mut self, new_key: [u8; 32]) {
-        self.data_encryption_key = new_key;
-        self.update_modified_at();
-        self.digest();
-    }
-}
+// /// change master key
+// impl SuperBlock {
+//     pub fn change_data_encryption_key(&mut self, new_key: [u8; 32]) {
+//         self.wrapped_data_encryption_key = new_key;
+//         self.update_modified_at();
+//         self.digest();
+//     }
+// }
 impl DigestInSelf for SuperBlock {
     fn digest(&mut self) {
         self.digest = [0u8; 32];

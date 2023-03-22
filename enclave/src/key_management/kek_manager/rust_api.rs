@@ -19,27 +19,27 @@ impl KekManager {
                 opaque::decode(unsealed_bytes.to_plaintext()).ok_or(anyhow!("decode error!"))?;
             Ok(Self {
                 kek_path: kek_path.to_path_buf(),
-                keks,
+                user_keks: keks,
             })
         } else {
             // create kek file
             File::create(kek_path)?;
             Ok(Self {
                 kek_path: kek_path.to_path_buf(),
-                keks: Default::default(),
+                user_keks: Default::default(),
             })
         }
     }
 }
 
 impl KekManager {
-    pub fn lookup(&self, user_id: u16) -> Option<[u8; 16]> {
-        self.keks.get(&user_id).copied()
+    pub fn lookup(&self, user_id: u32) -> Option<[u8; 16]> {
+        self.user_keks_ref().get(&user_id).copied()
     }
 
     pub fn update(
         &mut self,
-        user_id: u16,
+        user_id: u32,
         old_password: &[u8],
         new_password: &[u8],
     ) -> anyhow::Result<()> {
@@ -51,7 +51,7 @@ impl KekManager {
         argon2
             .hash_password_into(old_password, salt, &mut calculated_user_kek)
             .map_err(|_| anyhow!("hash password failed!"))?;
-        if self.keks.get(&user_id) != Some(&calculated_user_kek) {
+        if self.user_keks_ref().get(&user_id) != Some(&calculated_user_kek) {
             return Err(anyhow!("user id or old password is wrong!"));
         }
 
@@ -60,7 +60,7 @@ impl KekManager {
             .map_err(|_| anyhow!("hash password failed!"))?;
         // update kek
         // `insert` method will replace the old value if the key already exists
-        self.keks.insert(user_id, calculated_user_kek);
+        self.user_keks_mut().insert(user_id, calculated_user_kek);
         Ok(())
     }
 }
@@ -71,7 +71,7 @@ fn test_kek_manager_init() {
         std::fs::remove_file(kek_manager_init_file).unwrap();
     }
     let kek_manager = KekManager::new("/tmp/kek_manager_init").unwrap();
-    assert_eq!(kek_manager.keks_ref().len(), 0);
+    assert_eq!(kek_manager.user_keks_ref().len(), 0);
 }
 
 fn test_kek_manager_drop() -> anyhow::Result<()> {
@@ -81,15 +81,15 @@ fn test_kek_manager_drop() -> anyhow::Result<()> {
     }
     let mut kek_manager = KekManager::new(kek_manager_drop_file)?;
     // randonly insert some keks
-    kek_manager.keks_mut().insert(1, [1u8; 16]);
-    kek_manager.keks_mut().insert(2, [2u8; 16]);
-    kek_manager.keks_mut().insert(3, [3u8; 16]);
+    kek_manager.user_keks_mut().insert(1, [1u8; 16]);
+    kek_manager.user_keks_mut().insert(2, [2u8; 16]);
+    kek_manager.user_keks_mut().insert(3, [3u8; 16]);
     // drop kek_manager
     drop(kek_manager);
     // read keks from file
     let kek_manager = KekManager::new(kek_manager_drop_file)?;
-    assert_eq!(kek_manager.keks_ref().len(), 3);
-    let keks = kek_manager.keks_ref();
+    assert_eq!(kek_manager.user_keks_ref().len(), 3);
+    let keks = kek_manager.user_keks_ref();
     assert_eq!(keks.get(&1), Some(&[1u8; 16]));
     assert_eq!(keks.get(&2), Some(&[2u8; 16]));
     assert_eq!(keks.get(&3), Some(&[3u8; 16]));
@@ -108,7 +108,7 @@ fn test_kek_manager_lookup() {
     assert_eq!(kek_manager.lookup(1), None);
     let user_id = 1;
     let kek = [1u8; 16];
-    kek_manager.keks_mut().insert(user_id, kek);
+    kek_manager.user_keks_mut().insert(user_id, kek);
     // if `user id` exists, lookup will return the corresponding kek
     assert_eq!(kek_manager.lookup(1), Some([1u8; 16]));
 }
@@ -130,7 +130,7 @@ fn test_kek_manager_update() {
         .update(user_id, old_password, new_password)
         .is_err());
 
-    kek_manager.keks_mut().insert(user_id, [1u8; 16]);
+    kek_manager.user_keks_mut().insert(user_id, [1u8; 16]);
 
     // if the old password is wrong, update will fail
     assert!(kek_manager
@@ -146,7 +146,7 @@ fn test_kek_manager_update() {
     argon2
         .hash_password_into(old_password, salt, &mut old_user_kek)
         .expect("hash password failed!");
-    kek_manager.keks_mut().insert(user_id, old_user_kek);
+    kek_manager.user_keks_mut().insert(user_id, old_user_kek);
 
     // if the old password is correct, update will succeed
     kek_manager

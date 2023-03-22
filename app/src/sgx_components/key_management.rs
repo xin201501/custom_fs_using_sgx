@@ -3,25 +3,42 @@ use once_cell::sync::OnceCell;
 use sgx_types::{error::SgxStatus, types::EnclaveId};
 use sgx_urts::enclave::SgxEnclave;
 use std::{
-    ffi::{c_char, CString},
     path::Path,
 };
 pub const DEFAULT_KEK_MANAGER_PATH: &str = "/tmp/kek_manager";
 /// The global sgx environment
-static GLOBAL_SGX_KEY_MANAGE_ENV: OnceCell<SgxEnclave> = OnceCell::new();
+static GLOBAL_SGX_KEK_MANAGE_ENV: OnceCell<SgxEnclave> = OnceCell::new();
 extern "C" {
-    fn init_kek_manager(eid: EnclaveId, kek_path: *const c_char) -> SgxStatus;
+    fn init_kek_manager(eid: EnclaveId, kek_path: *const u8, kek_path_len: usize) -> SgxStatus;
     fn create_user_kek(
         eid: EnclaveId,
         ret: *mut SgxStatus,
-        user_id: u16,
+        user_id: u32,
+        user_password: *const u8,
+        user_password_len: usize,
+    ) -> SgxStatus;
+
+    fn generate_random_wrapped_key(
+        eid: EnclaveId,
+        ret: *mut SgxStatus,
+        user_id: u32,
+        user_password: *const u8,
+        user_password_len: usize,
+        wrapped_key: *mut u8,
+        wrapped_key_len: usize,
+    ) -> SgxStatus;
+
+    fn check_user_password_outside_sgx(
+        eid: EnclaveId,
+        ret: *mut SgxStatus,
+        user_id: u32,
         user_password: *const u8,
         user_password_len: usize,
     ) -> SgxStatus;
     fn update_user_kek(
         eid: EnclaveId,
         ret: *mut SgxStatus,
-        user_id: u16,
+        user_id: u32,
         old_user_password: *const u8,
         old_user_password_len: usize,
         new_user_password: *const u8,
@@ -38,14 +55,9 @@ pub struct KekManagerProxy {
 }
 impl KekManagerProxy {
     pub fn new(enclave_path: impl AsRef<Path>, kek_path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let global_sgx_environment = GLOBAL_SGX_KEY_MANAGE_ENV
+        let global_sgx_environment = GLOBAL_SGX_KEK_MANAGE_ENV
             .get_or_try_init(|| SgxEnclave::create(enclave_path.as_ref(), true))?;
-        let kek_path = kek_path
-            .as_ref()
-            .to_str()
-            .ok_or(anyhow::anyhow!("kek path is not valid"))?;
-
-        let kek_path = CString::new(kek_path).expect("kek path is not valid");
+        let kek_path = kek_path.as_ref().to_str().unwrap();
         let eid = global_sgx_environment.eid();
 
         // RAII for `KEKManager`
@@ -53,7 +65,8 @@ impl KekManagerProxy {
         // because `KEKManager` implements `Drop` itself,
         // when this struct is dropped, `KEKManager` will be dropped first,
         // when `KEKManager` drops its `Drop` method will be called automatically.
-        let init_kek_manager_status = unsafe { init_kek_manager(eid, kek_path.into_raw()) };
+        let init_kek_manager_status =
+            unsafe { init_kek_manager(eid, kek_path.as_ptr(), kek_path.len()) };
         match init_kek_manager_status {
             SgxStatus::Success => (),
             _ => {
@@ -73,7 +86,7 @@ impl KekManagerProxy {
 impl KekManagerProxy {
     pub fn sgx_create_user_kek(
         &self,
-        user_id: u16,
+        user_id: u32,
         user_password: impl AsRef<[u8]>,
     ) -> anyhow::Result<()> {
         let user_password = user_password.as_ref();
@@ -95,9 +108,54 @@ impl KekManagerProxy {
             )),
         }
     }
+
+    pub fn sgx_generate_random_wrapped_key(
+        &self,
+        user_id: u32,
+        user_password: impl AsRef<[u8]>,
+    ) -> anyhow::Result<[u8; 32]> {
+        let user_password = user_password.as_ref();
+        let mut wrapped_key = [0u8; 32];
+        let mut status = SgxStatus::Unexpected;
+        unsafe {
+            generate_random_wrapped_key(
+                self.sgx_environment_id,
+                &mut status,
+                user_id,
+                user_password.as_ptr(),
+                user_password.len(),
+                wrapped_key.as_mut_ptr(),
+                wrapped_key.len(),
+            )
+        };
+        match status {
+            SgxStatus::Success => Ok(wrapped_key),
+            SgxStatus::InvalidParameter => Err(anyhow::anyhow!("invalid user id or password")),
+            _ => Err(anyhow::anyhow!(
+                "generate random wrapped key internal engine failed with status: {:?}",
+                status
+            )),
+        }
+    }
+
+    pub fn sgx_check_user_password(&self, user_id: u32, user_password: impl AsRef<[u8]>) -> bool {
+        let user_password = user_password.as_ref();
+        let mut status = SgxStatus::Unexpected;
+        unsafe {
+            check_user_password_outside_sgx(
+                self.sgx_environment_id,
+                &mut status,
+                user_id,
+                user_password.as_ptr(),
+                user_password.len(),
+            )
+        };
+        matches!(status, SgxStatus::Success)
+    }
+
     pub fn sgx_update_user_kek(
         &self,
-        user_id: u16,
+        user_id: u32,
         old_user_password: impl AsRef<[u8]>,
         new_user_password: impl AsRef<[u8]>,
     ) -> anyhow::Result<()> {
@@ -147,7 +205,7 @@ mod tests {
     extern "C" {
         fn run_key_management_rust_api_tests(eid: EnclaveId) -> SgxStatus;
         fn run_key_management_c_api_tests(eid: EnclaveId) -> SgxStatus;
-        
+
     }
     use super::*;
     use crate::sgx_components::DEFAULT_ENCLAVE_PATH;

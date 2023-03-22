@@ -18,12 +18,13 @@ fn main() -> anyhow::Result<()> {
                 args.size,
                 args.inode_count,
                 args.block_size,
+                args.password,
             )?;
         }
         MyFsCli::Mount(args) => {
             //if it is a `mount` subcommand
             //register a filesystem to `FUSE` and mount it
-            filesystem::mount::mount(args.image_file_path, args.mount_point)?;
+            filesystem::mount::mount(args.image_file_path, args.mount_point, args.password)?;
         }
     }
     Ok(())

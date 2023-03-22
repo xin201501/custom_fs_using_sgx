@@ -1,9 +1,11 @@
 enclave {
     trusted {
-        public void init_kek_manager([in,string] const char* kek_path);
-        public sgx_status_t create_user_kek(uint16_t user_id, [in,size=user_password_len] uint8_t* user_password,size_t user_password_len);
-        public sgx_status_t update_user_kek(uint16_t user_id,[in,size=old_password_len] uint8_t* old_password,size_t old_password_len,[in,size=new_password_len] uint8_t* new_password,size_t new_password_len);
+        public void init_kek_manager([in,size=kek_path_len] const uint8_t* kek_path,size_t kek_path_len);
+        public sgx_status_t create_user_kek(uint32_t user_id, [in,size=user_password_len] uint8_t* user_password,size_t user_password_len);
+        public sgx_status_t check_user_password_outside_sgx(uint32_t user_id,[in,size=user_password_len] uint8_t* user_password,size_t user_password_len);
+        public sgx_status_t update_user_kek(uint32_t user_id,[in,size=old_password_len] uint8_t* old_password,size_t old_password_len,[in,size=new_password_len] uint8_t* new_password,size_t new_password_len);
         public void save_kek_manager();
+        public sgx_status_t generate_random_wrapped_key(uint32_t user_id,[in,size=password_len] const uint8_t* user_password,size_t password_len,[out,size=wrapped_key_len] uint8_t* wrapped_key,size_t wrapped_key_len);
         public void run_key_management_rust_api_tests();
         public void run_key_management_c_api_tests();
         public void test_third_party_crates();
