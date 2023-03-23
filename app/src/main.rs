@@ -1,5 +1,5 @@
 use clap::Parser;
-use filesystem::cli_interface::MyFsCli;
+use filesystem::{change_password::change_user_password, cli_interface::MyFsCli};
 /// a CLI interface to users to choose create our filesystem,
 /// or register it to `FUSE` and mount it.
 ///
@@ -27,8 +27,12 @@ fn main() -> anyhow::Result<()> {
             //if it is a `mount` subcommand
             //register a filesystem to `FUSE` and mount it
             let user_password =
-                rpassword::prompt_password("Please input a password for a new user: ")?;
+                rpassword::prompt_password("Please input a password for this user: ")?;
             filesystem::mount::mount(args.image_file_path, args.mount_point, user_password)?;
+        }
+        MyFsCli::ChangeUserPassword(args) => {
+            // if it is a `change user password` subcommand
+            change_user_password(args.user_name)?
         }
     }
     Ok(())

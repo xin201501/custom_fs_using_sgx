@@ -5,8 +5,10 @@ use clap::Parser;
 pub enum MyFsCli {
     /// create a new file system
     Mkfs(MkfsArgs),
-    /// register a filesystem to `FUSE` and mount it    #[command(subcommand)]
+    /// register a filesystem to `FUSE` and mount it
     Mount(MountArgs),
+    /// change user password
+    ChangeUserPassword(ChangeUserPasswordArgs),
 }
 ///make a new fs subcommand
 #[derive(clap::Args, Debug, PartialEq)]
@@ -38,6 +40,15 @@ pub struct MountArgs {
     pub mount_point: String,
 }
 
+/// change user password struct
+#[derive(clap::Args, Debug, PartialEq)]
+#[command(author, version, about = "change user password")]
+pub struct ChangeUserPasswordArgs {
+    /// the user name
+    #[clap(short = 'n', long)]
+    pub user_name: String,
+}
+
 /// test the `MyFsCli` struct
 /// test `mkfs` subcommand
 #[cfg(test)]
@@ -62,11 +73,11 @@ mod mkfs_parse_args_tests {
     /// test long parameter form
     #[test]
     fn test_long_parameter_form() {
-        let image_file_path_name = concat!("--", "image-file-path");
+        let image_file_path_name_arg = concat!("--", "image-file-path");
         let args = MyFsCli::parse_from([
             "myfs",
             "mkfs",
-            image_file_path_name,
+            image_file_path_name_arg,
             "test",
             "--size",
             "30",
@@ -108,11 +119,11 @@ mod mount_parse_args_tests {
     /// test long parameter form
     #[test]
     fn test_long_parameter_form() {
-        let image_file_path_name = concat!("--", "image-file-path");
+        let image_file_path_arg = concat!("--", "image-file-path");
         let args = MyFsCli::parse_from([
             "myfs",
             "mount",
-            image_file_path_name,
+            image_file_path_arg,
             "test",
             "--mount-point",
             "test",
@@ -122,6 +133,35 @@ mod mount_parse_args_tests {
             MyFsCli::Mount(MountArgs {
                 image_file_path: "test".to_string(),
                 mount_point: "test".to_string(),
+            })
+        );
+    }
+}
+
+/// test the `ChangeUserPasswordArgs` struct
+#[cfg(test)]
+mod change_user_password_parse_args_tests {
+    use super::*;
+    /// test short parameter form
+    #[test]
+    fn test_short_parameter_form() {
+        let args = MyFsCli::parse_from(["myfs", "change-user-password", "-n", "test"]);
+        assert_eq!(
+            args,
+            MyFsCli::ChangeUserPassword(ChangeUserPasswordArgs {
+                user_name: "test".to_string(),
+            })
+        );
+    }
+    /// test long parameter form
+    #[test]
+    fn test_long_parameter_form() {
+        let user_name_arg = concat!("--", "user-name");
+        let args = MyFsCli::parse_from(["myfs", "change-user-password", user_name_arg, "test"]);
+        assert_eq!(
+            args,
+            MyFsCli::ChangeUserPassword(ChangeUserPasswordArgs {
+                user_name: "test".to_string(),
             })
         );
     }

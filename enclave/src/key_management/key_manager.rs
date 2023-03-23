@@ -16,64 +16,69 @@ pub struct KeyManager {
     data_encryption_key: [u8; 32],
 }
 impl KeyManager {
-    pub fn new(key_path: impl AsRef<Path>) -> anyhow::Result<KeyManager> {
+    pub fn new(key_path: impl AsRef<Path>) -> anyhow::Result<&'static KeyManager> {
         let key_path = key_path.as_ref();
-        // let result = GLOBAL_KEY_MANAGER.get_or_try_init(|| {
-        //     if key_path.exists() {
-        //         // read data encryption key from file
-        //         let encrypted_bytes =
-        //             std::fs::read(key_path).map_err(|_| anyhow!("read kek file failed!"))?;
-        //         let unsealed_bytes = UnsealedData::<[u8]>::unseal_from_bytes(encrypted_bytes)
-        //             .map_err(|_| anyhow!("unseal key failed!"))?;
-        //         let data_encryption_key = opaque::decode(unsealed_bytes.to_plaintext())
-        //             .ok_or(anyhow!("decode error!"))?;
+        let result = GLOBAL_KEY_MANAGER.get_or_try_init(|| {
+            if key_path.exists() {
+                // read data encryption key from file
+                let encrypted_bytes =
+                    std::fs::read(key_path).map_err(|_| anyhow!("read kek file failed!"))?;
+                let unsealed_bytes = UnsealedData::<[u8]>::unseal_from_bytes(encrypted_bytes)
+                    .map_err(|_| anyhow!("unseal key failed!"))?;
+                let data_encryption_key = opaque::decode(unsealed_bytes.to_plaintext())
+                    .ok_or(anyhow!("decode error!"))?;
 
-        //         dbg!(data_encryption_key);
-        //         Ok(Self {
-        //             key_path: key_path.to_path_buf(),
-        //             data_encryption_key,
-        //         })
-        //     } else {
-        //         // create data encryption key file
-        //         File::create(key_path)?;
-        //         Ok(Self {
-        //             key_path: key_path.to_path_buf(),
-        //             data_encryption_key: {
-        //                 let mut rng = sgx_rand::thread_rng();
-        //                 let mut random_key = [0u8; 32];
-        //                 rng.fill_bytes(&mut random_key);
-        //                 random_key
-        //             },
-        //         })
-        //     }
-        // });
-        // result
-        if key_path.exists() {
-            // read data encryption key from file
-            let encrypted_bytes =
-                std::fs::read(key_path).map_err(|_| anyhow!("read key file failed!"))?;
-            let unsealed_bytes = UnsealedData::<[u8]>::unseal_from_bytes(encrypted_bytes)
-                .map_err(|_| anyhow!("unseal key failed!"))?;
-            let data_encryption_key =
-                opaque::decode(unsealed_bytes.to_plaintext()).ok_or(anyhow!("decode error!"))?;
-
-            Ok(Self {
-                key_path: key_path.to_path_buf(),
-                data_encryption_key,
-            })
-        } else {
-            // create data encryption key file
-            File::create(key_path)?;
-            Ok(Self {
-                key_path: key_path.to_path_buf(),
-                data_encryption_key: {
+                dbg!(data_encryption_key);
+                Ok(Self {
+                    key_path: key_path.to_path_buf(),
+                    data_encryption_key,
+                })
+            } else {
+                // create data encryption key file
+                File::create(key_path)?;
+                let data_encryption_key = {
                     let mut rng = sgx_rand::thread_rng();
                     let mut random_key = [0u8; 32];
                     rng.fill_bytes(&mut random_key);
                     random_key
-                },
-            })
-        }
+                };
+                let encoded_key = opaque::encode(&data_encryption_key).expect("encode error!");
+                let sealed_key =
+                    SealedData::<[u8]>::seal(encoded_key.as_slice(), None).expect("seal failed!");
+                std::fs::write(key_path, sealed_key.into_bytes()?)?;
+                Ok(Self {
+                    key_path: key_path.to_path_buf(),
+                    data_encryption_key,
+                })
+            }
+        });
+        result
+        // if key_path.exists() {
+        //     // read data encryption key from file
+        //     let encrypted_bytes =
+        //         std::fs::read(key_path).map_err(|_| anyhow!("read key file failed!"))?;
+        //     let unsealed_bytes = UnsealedData::<[u8]>::unseal_from_bytes(encrypted_bytes)
+        //         .map_err(|_| anyhow!("unseal key failed!"))?;
+        //     let data_encryption_key =
+        //         opaque::decode(unsealed_bytes.to_plaintext()).ok_or(anyhow!("decode error!"))?;
+
+        //     Ok(Self {
+        //         key_path: key_path.to_path_buf(),
+        //         data_encryption_key,
+        //     })
+        // } else {
+        //     // create data encryption key file
+        //     File::create(key_path)?;
+        //     Ok(Self {
+        //         key_path: key_path.to_path_buf(),
+        //         data_encryption_key: {
+        //             let mut rng = sgx_rand::thread_rng();
+        //             let mut random_key = [0u8; 32];
+        //             rng.fill_bytes(&mut random_key);
+        //             random_key
+        //         },
+        //     })
+        // }
     }
 }
 impl KeyManager {
@@ -102,8 +107,8 @@ impl Drop for KeyManager {
 pub fn save_key_manager() {
     let lock = GLOBAL_KEY_MANAGER.get().expect("not init key manager!");
     let key = lock.data_encryption_key_ref();
-    let encoded_keks = opaque::encode(key).expect("encode error!");
-    let sealed_key = SealedData::<[u8]>::seal(encoded_keks.as_slice(), None).expect("seal failed!");
+    let encoded_key = opaque::encode(key).expect("encode error!");
+    let sealed_key = SealedData::<[u8]>::seal(encoded_key.as_slice(), None).expect("seal failed!");
 
     std::fs::write(lock.key_path_ref(), sealed_key.into_bytes().unwrap())
         .expect("write kek file failed!");

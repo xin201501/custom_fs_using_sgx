@@ -1,5 +1,6 @@
 #![feature(int_roundings)]
 #![feature(iterator_try_collect)]
+pub mod change_password;
 pub mod cli_interface;
 mod fs;
 pub mod mkfs;
