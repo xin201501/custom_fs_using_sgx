@@ -26,8 +26,8 @@ where
     let opts = vec![
         MountOption::FSName("MyFS".to_string()),
         MountOption::DefaultPermissions,
-        MountOption::AllowOther,
-        MountOption::AutoUnmount,
+        // MountOption::AllowOther,
+        // MountOption::AutoUnmount,
     ];
 
     Ok(fuser::mount2(fs, mountpoint, &opts)?)
