@@ -24,9 +24,6 @@ pub struct MkfsArgs {
     /// the block size of the file system
     #[clap(short, long)]
     pub block_size: u32,
-    /// user password
-    #[clap(short, long)]
-    pub password: String,
 }
 
 /// mount a fs subcommand
@@ -39,37 +36,18 @@ pub struct MountArgs {
     /// the mount point of the file system
     #[clap(short, long)]
     pub mount_point: String,
-    /// user password
-    #[clap(short, long)]
-    pub password: String,
 }
 
 /// test the `MyFsCli` struct
 /// test `mkfs` subcommand
 #[cfg(test)]
 mod mkfs_parse_args_tests {
-    use std::io::Cursor;
-
     use super::*;
     /// test short parameter form
     #[test]
     fn test_short_parameter_form() {
-        let password = "123456\n".to_string();
-        let mut cursor = Cursor::new(password);
-        let password = rpassword::read_password_from_bufread(&mut cursor).unwrap();
         let args = MyFsCli::parse_from([
-            "myfs",
-            "mkfs",
-            "-I",
-            "test",
-            "-s",
-            "30",
-            "-i",
-            "3172",
-            "-b",
-            "512",
-            "-p",
-            password.as_str(),
+            "myfs", "mkfs", "-I", "test", "-s", "30", "-i", "3172", "-b", "512",
         ]);
         assert_eq!(
             args,
@@ -78,7 +56,6 @@ mod mkfs_parse_args_tests {
                 size: 30,
                 inode_count: 3172,
                 block_size: 512,
-                password,
             })
         );
     }
@@ -86,9 +63,6 @@ mod mkfs_parse_args_tests {
     #[test]
     fn test_long_parameter_form() {
         let image_file_path_name = concat!("--", "image-file-path");
-        let password = "123456\n".to_string();
-        let mut cursor = Cursor::new(password);
-        let password = rpassword::read_password_from_bufread(&mut cursor).unwrap();
         let args = MyFsCli::parse_from([
             "myfs",
             "mkfs",
@@ -100,8 +74,6 @@ mod mkfs_parse_args_tests {
             "3172",
             "--block-size",
             "512",
-            "--password",
-            password.as_str(),
         ]);
         assert_eq!(
             args,
@@ -110,7 +82,6 @@ mod mkfs_parse_args_tests {
                 size: 30,
                 inode_count: 3172,
                 block_size: 512,
-                password,
             })
         );
     }
@@ -120,31 +91,17 @@ mod mkfs_parse_args_tests {
 /// test `mount` subcommand
 #[cfg(test)]
 mod mount_parse_args_tests {
-    use std::io::Cursor;
 
     use super::*;
     /// test short parameter form
     #[test]
     fn test_short_parameter_form() {
-        let password = "123456\n".to_string();
-        let mut cursor = Cursor::new(password);
-        let password = rpassword::read_password_from_bufread(&mut cursor).unwrap();
-        let args = MyFsCli::parse_from([
-            "myfs",
-            "mount",
-            "-I",
-            "test",
-            "-m",
-            "test",
-            "-p",
-            password.as_str(),
-        ]);
+        let args = MyFsCli::parse_from(["myfs", "mount", "-I", "test", "-m", "test"]);
         assert_eq!(
             args,
             MyFsCli::Mount(MountArgs {
                 image_file_path: "test".to_string(),
                 mount_point: "test".to_string(),
-                password,
             })
         );
     }
@@ -152,9 +109,6 @@ mod mount_parse_args_tests {
     #[test]
     fn test_long_parameter_form() {
         let image_file_path_name = concat!("--", "image-file-path");
-        let password = "123456\n".to_string();
-        let mut cursor = Cursor::new(password);
-        let password = rpassword::read_password_from_bufread(&mut cursor).unwrap();
         let args = MyFsCli::parse_from([
             "myfs",
             "mount",
@@ -162,15 +116,12 @@ mod mount_parse_args_tests {
             "test",
             "--mount-point",
             "test",
-            "--password",
-            password.as_str(),
         ]);
         assert_eq!(
             args,
             MyFsCli::Mount(MountArgs {
                 image_file_path: "test".to_string(),
                 mount_point: "test".to_string(),
-                password,
             })
         );
     }

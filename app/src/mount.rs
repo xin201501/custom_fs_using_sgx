@@ -20,6 +20,7 @@ where
     if !key_manager.sgx_check_user_password(user_id, password) {
         return Err(anyhow::anyhow!("password is incorrect"));
     }
+    println!("user password is correct!");
 
     // end check
     let opts = vec![

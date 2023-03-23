@@ -12,19 +12,23 @@ fn main() -> anyhow::Result<()> {
     //if it is a `mkfs` subcommand
     match args {
         MyFsCli::Mkfs(args) => {
+            let new_user_password =
+                rpassword::prompt_password("Please input a password for a new user: ")?;
             //create a new file system
             filesystem::mkfs::mkfs(
                 args.image_file_path,
                 args.size,
                 args.inode_count,
                 args.block_size,
-                args.password,
+                new_user_password,
             )?;
         }
         MyFsCli::Mount(args) => {
             //if it is a `mount` subcommand
             //register a filesystem to `FUSE` and mount it
-            filesystem::mount::mount(args.image_file_path, args.mount_point, args.password)?;
+            let user_password =
+                rpassword::prompt_password("Please input a password for a new user: ")?;
+            filesystem::mount::mount(args.image_file_path, args.mount_point, user_password)?;
         }
     }
     Ok(())
