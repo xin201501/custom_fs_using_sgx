@@ -1,6 +1,6 @@
 use sgx_serialize::{opaque, Deserialize, Serialize};
 use sgx_tseal::seal::SealedData;
-use std::{collections::BTreeMap,path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct KekManager {
     /// underlying file path

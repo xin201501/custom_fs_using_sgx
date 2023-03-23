@@ -12,7 +12,6 @@ fn lookup_key(path: impl AsRef<Path>) -> anyhow::Result<[u8; 32]> {
     let key_manager = KeyManager::new(path)?;
     // dbg!(&key_manager);
     Ok(key_manager.data_encryption_key_ref().to_owned())
-    
 }
 
 fn aes_xts_128bit_128bit_key_encryption(
@@ -67,7 +66,7 @@ pub unsafe extern "C" fn aes_xts_128bit_key_in_sgx_encryption(
 ) {
     let plaintext = std::slice::from_raw_parts(plaintext, plaintext_len);
     let ciphertext = std::slice::from_raw_parts_mut(ciphertext, plaintext_len);
-    
+
     let key = lookup_key(DEFAULT_KEY_MANAGER_PATH).expect("lookup data encryption key failed"); //TODO
 
     let result = aes_xts_128bit_128bit_key_encryption(&key, plaintext, sector_size, sector_index);

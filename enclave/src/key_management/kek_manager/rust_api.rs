@@ -163,7 +163,7 @@ fn test_kek_manager_update() {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn run_key_management_rust_api_tests() {
+pub unsafe extern "C" fn run_kek_management_rust_api_tests() {
     let failed_tests_amount = run_unit_tests!(
         test_kek_manager_init,
         test_kek_manager_drop,

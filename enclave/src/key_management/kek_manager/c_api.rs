@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    path::Path,
-    sync::RwLock,
-};
+use std::{fs::File, path::Path, sync::RwLock};
 
 use argon2::Argon2;
 use once_cell::sync::OnceCell;
@@ -50,7 +46,7 @@ pub extern "C" fn init_kek_manager(kek_path: *const u8, kek_path_len: usize) {
 /// lookup a kek
 /// # Safety
 /// **must call [init_kek_manager] first** to use this function
-fn lookup_user_key(user_id: u32) -> Option<[u8; 16]> {
+fn lookup_user_kek(user_id: u32) -> Option<[u8; 16]> {
     let lock = GLOBAL_KEK_MANAGER_FOR_APP
         .get()
         .expect("init_kek_manager must be called first!")
@@ -72,7 +68,7 @@ pub extern "C" fn check_user_password_outside_sgx(
 ) -> SgxStatus {
     let claimed_user_password =
         unsafe { std::slice::from_raw_parts(claimed_user_password, claimed_user_password_len) };
-    let right_kek = lookup_user_key(user_id);
+    let right_kek = lookup_user_kek(user_id);
     match right_kek {
         None => SgxStatus::InvalidParameter,
         Some(kek) => {
@@ -83,7 +79,7 @@ pub extern "C" fn check_user_password_outside_sgx(
             argon2
                 .hash_password_into(claimed_user_password, salt, &mut calculated_kek)
                 .expect("hash password failed!");
-            
+
             let is_valid = kek == calculated_kek;
 
             if is_valid {
@@ -99,7 +95,7 @@ fn check_user_password_in_sgx(
     user_id: u32,
     claimed_user_password: &[u8],
 ) -> (bool, Option<[u8; 16]>) {
-    let kek = lookup_user_key(user_id);
+    let kek = lookup_user_kek(user_id);
     match kek {
         None => (false, None),
         Some(kek) => {
@@ -205,6 +201,18 @@ pub unsafe extern "C" fn update_user_kek(
     // `insert` method will replace the old value if the key already exists
     kek_map.insert(user_id, new_kek);
     SgxStatus::Success
+}
+
+#[no_mangle]
+pub extern "C" fn clear_user_kek() {
+    let mut lock = GLOBAL_KEK_MANAGER_FOR_APP
+        .get()
+        .expect("init_kek_manager must be called first")
+        .write()
+        .unwrap();
+    lock.user_keks_mut().clear();
+    drop(lock);
+    save_kek_manager();
 }
 
 #[no_mangle]
@@ -349,7 +357,7 @@ fn test_lookup_user_kek() {
         .unwrap();
     lock.user_keks_mut().insert(user_id, user_kek);
     drop(lock);
-    let fetched_user_kek = unsafe { lookup_user_key(user_id) };
+    let fetched_user_kek = unsafe { lookup_user_kek(user_id) };
     assert_eq!(Some(user_kek), fetched_user_kek);
 }
 
@@ -424,7 +432,7 @@ fn test_save_user_kek() {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn run_key_management_c_api_tests() {
+pub unsafe extern "C" fn run_kek_management_c_api_tests() {
     let test_file_path_in_c = "/tmp/kek_manager_c_api_test_update";
     let test_file_path = Path::new(test_file_path_in_c);
     if test_file_path.exists() {

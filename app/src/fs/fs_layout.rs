@@ -625,7 +625,7 @@ mod tests {
 
     use crate::{
         mkfs::mkfs,
-        sgx_components::key_management::DEFAULT_KEK_MANAGER_PATH,
+        sgx_components::kek_management::DEFAULT_KEK_MANAGER_PATH,
         utils::{
             init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH},
             time_util::TimeDurationStruct,

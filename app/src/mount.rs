@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{
     fs::MyFS,
     sgx_components::{
-        key_management::{KekManagerProxy, DEFAULT_KEK_MANAGER_PATH},
+        kek_management::{KekManagerProxy, DEFAULT_KEK_MANAGER_PATH},
         DEFAULT_ENCLAVE_PATH,
     },
 };

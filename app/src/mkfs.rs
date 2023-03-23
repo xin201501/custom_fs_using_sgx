@@ -2,7 +2,7 @@
 use crate::{
     fs::SuperBlock,
     sgx_components::{
-        key_management::{KekManagerProxy, DEFAULT_KEK_MANAGER_PATH},
+        kek_management::{KekManagerProxy, DEFAULT_KEK_MANAGER_PATH},
         DEFAULT_ENCLAVE_PATH,
     },
     tde_cursor::TDECursor,
@@ -95,13 +95,13 @@ mod tests {
     use super::*;
     use crate::{
         fs::ROOT_INODE,
-        fs::{FileKind, MyFS}, utils::init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH},
+        fs::{FileKind, MyFS},
+        utils::init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH},
     };
     use std::{path::PathBuf, str::FromStr};
 
     #[test]
     fn test_mkfs() {
-
         let tmp_file = PathBuf::from_str("/tmp/new_fs.img").unwrap();
         if tmp_file.exists() {
             std::fs::remove_file(&tmp_file).unwrap();
@@ -111,9 +111,9 @@ mod tests {
         let password = "123456";
         let block_group_size = utils::fs_size_calculator::block_group_size(block_size);
         let file_size = 2 * block_size as u64 + block_group_size;
-        
-        init_test_environment("/tmp/c",DEFAULT_KEY_MANAGER_PATH , 50);
-        
+
+        init_test_environment(DEFAULT_KEK_MANAGER_PATH, DEFAULT_KEY_MANAGER_PATH, 50);
+
         mkfs(&tmp_file, file_size, inode_count, block_size, password).unwrap();
         let fs = MyFS::new(&tmp_file, 512).unwrap();
 

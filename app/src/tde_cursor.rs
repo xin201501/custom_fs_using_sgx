@@ -48,6 +48,7 @@ impl<T> TDECursor<T>
 where
     T: AsRef<[u8]>,
 {
+    /// Ref: https://doc.rust-lang.org/std/io/struct.Cursor.html#method.remaining_slice
     /// Returns the remaining slice.
     ///
     /// # Examples
@@ -56,7 +57,7 @@ where
     /// #![feature(cursor_remaining)]
     /// use filesystem::tde_cursor::TDECursor;
     ///
-    /// let mut buff = TDECursor::new(vec![1, 2, 3, 4, 5],1,[1u8;32]);
+    /// let mut buff = TDECursor::new(vec![1, 2, 3, 4, 5],1);
     ///
     /// assert_eq!(buff.remaining_slice(), &[1, 2, 3, 4, 5]);
     ///
@@ -74,6 +75,7 @@ where
         &self.inner.as_ref()[(len as usize)..]
     }
 
+    /// Ref: https://doc.rust-lang.org/std/io/struct.Cursor.html#method.is_empty
     /// Returns `true` if the remaining slice is empty.
     ///
     /// # Examples
@@ -82,7 +84,7 @@ where
     /// #![feature(cursor_remaining)]
     /// use filesystem::tde_cursor::TDECursor;
     ///
-    /// let mut buff = TDECursor::new(vec![1, 2, 3, 4, 5],1,[1u8;32]);
+    /// let mut buff = TDECursor::new(vec![1, 2, 3, 4, 5],1);
     ///
     /// buff.set_position(2);
     /// assert!(!buff.is_empty());
@@ -321,17 +323,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        sgx_components::key_management::DEFAULT_KEK_MANAGER_PATH,
-        utils::init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH},
-    };
-
     use super::*;
+    use crate::utils::init_test_environment::{init_test_environment, DEFAULT_KEY_MANAGER_PATH};
     use std::io::{Read, Seek, Write};
     /// test if the data has ever been encrypted
     #[test]
     fn test_encryption() {
-        init_test_environment("/tmp/b", DEFAULT_KEY_MANAGER_PATH,101);
+        init_test_environment("/tmp/b", DEFAULT_KEY_MANAGER_PATH, 101);
         let mut cursor = TDECursor::new([0u8; 1024], 512);
         cursor.seek(SeekFrom::Start(0)).unwrap();
         let buf = vec![0u8; 1024];
@@ -342,7 +340,7 @@ mod tests {
     /// test if the data can transparently be encrypted and decrypted
     #[test]
     fn test_transparent_encryption() {
-        init_test_environment("/tmp/a",DEFAULT_KEY_MANAGER_PATH,150);
+        init_test_environment("/tmp/a", DEFAULT_KEY_MANAGER_PATH, 150);
         // test case 1, write 512 bytes at offset 512
         // test write [BLOCK_SIZE] contents to [BLOCK SIZE] offset
         let mut cursor = TDECursor::new([0u8; 1024], 512);

@@ -2,9 +2,7 @@
 use once_cell::sync::OnceCell;
 use sgx_types::{error::SgxStatus, types::EnclaveId};
 use sgx_urts::enclave::SgxEnclave;
-use std::{
-    path::Path,
-};
+use std::path::Path;
 pub const DEFAULT_KEK_MANAGER_PATH: &str = "/tmp/kek_manager";
 /// The global sgx environment
 static GLOBAL_SGX_KEK_MANAGE_ENV: OnceCell<SgxEnclave> = OnceCell::new();
@@ -194,6 +192,23 @@ impl KekManagerProxy {
     }
 }
 
+#[cfg(test)]
+extern "C" {
+    fn clear_user_kek(eid: EnclaveId) -> SgxStatus;
+}
+#[cfg(test)]
+impl KekManagerProxy {
+    pub fn clear_user_kek(&self) -> anyhow::Result<()> {
+        let status = unsafe { clear_user_kek(self.sgx_environment_id) };
+        match status {
+            SgxStatus::Success => Ok(()),
+            _ => Err(anyhow::anyhow!(
+                "clear user kek failed with status: {:?}",
+                status
+            )),
+        }
+    }
+}
 impl Drop for KekManagerProxy {
     fn drop(&mut self) {
         // save user kek before drop
@@ -203,17 +218,17 @@ impl Drop for KekManagerProxy {
 #[cfg(test)]
 mod tests {
     extern "C" {
-        fn run_key_management_rust_api_tests(eid: EnclaveId) -> SgxStatus;
-        fn run_key_management_c_api_tests(eid: EnclaveId) -> SgxStatus;
+        fn run_kek_management_rust_api_tests(eid: EnclaveId) -> SgxStatus;
+        fn run_kek_management_c_api_tests(eid: EnclaveId) -> SgxStatus;
 
     }
     use super::*;
     use crate::sgx_components::DEFAULT_ENCLAVE_PATH;
     #[test]
-    fn sgx_key_management_rust_api_tests() -> anyhow::Result<()> {
+    fn sgx_kek_management_rust_api_tests() -> anyhow::Result<()> {
         //create an enclave
         let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
-        let test_driver_run_status = unsafe { run_key_management_rust_api_tests(enclave.eid()) };
+        let test_driver_run_status = unsafe { run_kek_management_rust_api_tests(enclave.eid()) };
         match test_driver_run_status {
             SgxStatus::Success => Ok(()),
             _ => Err(anyhow::anyhow!("test_failed")),
@@ -221,10 +236,10 @@ mod tests {
     }
 
     #[test]
-    fn sgx_key_management_c_api_tests() -> anyhow::Result<()> {
+    fn sgx_kek_management_c_api_tests() -> anyhow::Result<()> {
         //create an enclave
         let enclave = SgxEnclave::create(DEFAULT_ENCLAVE_PATH, true)?;
-        let test_driver_run_status = unsafe { run_key_management_c_api_tests(enclave.eid()) };
+        let test_driver_run_status = unsafe { run_kek_management_c_api_tests(enclave.eid()) };
         match test_driver_run_status {
             SgxStatus::Success => Ok(()),
             _ => Err(anyhow::anyhow!("test failed")),
@@ -232,16 +247,16 @@ mod tests {
     }
 
     #[test]
-    fn key_management_wrapper_test() -> anyhow::Result<()> {
+    fn kek_management_wrapper_test() -> anyhow::Result<()> {
         let test_file = Path::new("/tmp/kek_wrapper_test");
         if test_file.exists() {
             std::fs::remove_file(test_file)?;
         }
         let user_id = 1;
-        let key_manager = KekManagerProxy::new(DEFAULT_ENCLAVE_PATH, test_file).unwrap();
-        key_manager.sgx_create_user_kek(user_id, "password")?;
-        key_manager.sgx_update_user_kek(user_id, "password", "new_password")?;
-        drop(key_manager);
+        let kek_manager = KekManagerProxy::new(DEFAULT_ENCLAVE_PATH, test_file).unwrap();
+        kek_manager.sgx_create_user_kek(user_id, "password")?;
+        kek_manager.sgx_update_user_kek(user_id, "password", "new_password")?;
+        drop(kek_manager);
         let key_manager = KekManagerProxy::new(DEFAULT_ENCLAVE_PATH, test_file).unwrap();
         assert!(key_manager
             .sgx_create_user_kek(user_id, "new_password")

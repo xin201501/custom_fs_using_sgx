@@ -39,9 +39,7 @@ impl Filesystem for MyFS {
     fn destroy(&mut self) {
         let mut image_file_mmap =
             std::mem::replace(self.image_file_mmap_mut(), MmapMut::map_anon(0).unwrap());
-        let block_size = 
-            self.superblock().block_size
-        ;
+        let block_size = self.superblock().block_size;
         let mut cursor = TDECursor::new(&mut image_file_mmap, block_size as u64);
         self.superblock_mut().serialize_into(&mut cursor).unwrap();
 
