@@ -793,15 +793,15 @@ impl Filesystem for MyFS {
                     return;
                 };
             }
-            parent_dir.entries.remove(name);
-            let Ok(_) = self.save_dir(parent_dir, parent) else {
+        }
+
+        // whether `hard links` is 0 or not, we need to update the inode and the parent dir
+        let Ok(_) =self.save_inode(&mut inode, inode_index) else {
                 reply.error(libc::EIO);
                 return;
             };
-        }
-
-        // whether `hard links` is 0 or not, we need to update the inode
-        let Ok(_) =self.save_inode(&mut inode, inode_index) else {
+        parent_dir.entries.remove(name);
+        let Ok(_) = self.save_dir(parent_dir, parent) else {
                 reply.error(libc::EIO);
                 return;
             };
