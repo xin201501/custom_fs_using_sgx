@@ -13,16 +13,17 @@ pub fn mount<P>(image_path: P, mountpoint: P, password: impl AsRef<[u8]>) -> any
 where
     P: AsRef<Path>,
 {
-    let fs = MyFS::new(image_path, 512)?;
     // check if password is correct
     let key_manager = KekManagerProxy::new(DEFAULT_ENCLAVE_PATH, DEFAULT_KEK_MANAGER_PATH)?;
     let user_id = users::get_effective_uid();
     if !key_manager.sgx_check_user_password(user_id, password) {
         return Err(anyhow::anyhow!("password is incorrect"));
     }
-    println!("user password is correct!");
-
     // end check
+
+    println!("user password is correct!");
+    let fs = MyFS::new(image_path, 512)?;
+
     let opts = vec![
         MountOption::FSName("MyFS".to_string()),
         MountOption::DefaultPermissions,
