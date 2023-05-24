@@ -58,9 +58,9 @@ where
     // generate a random wrapped key for this filesystem
     let wrapped_key = kekmanager_proxy.sgx_generate_random_wrapped_key(uid, user_password)?;
     println!("generated user_kek :{wrapped_key:?}");
-    // if file size is 1.3x block groups(for example),we will create 2 block groups
-    // and extend the file size to fit 2x block groups
-    let groups = file_size.div_ceil(block_group_size) as u32;
+    // if file size is 1.3x block groups(for example),we will create 1 block group
+    // and shrink the file size to fit 1x block group
+    let groups = file_size.div_floor(block_group_size) as u32;
 
     let mut superblock = SuperBlock::new(inode_count, block_size, groups, uid, gid);
     // open image file and prepare to write fs components
@@ -128,7 +128,7 @@ mod tests {
         assert!(first_block_group.has_inode(ROOT_INODE as _));
 
         // test if block groups number is correct
-        let correct_group_count = file_size.div_ceil(block_group_size) as u32;
+        let correct_group_count = file_size.div_floor(block_group_size) as u32;
         assert_eq!(correct_group_count, fs.groups().len() as u32);
 
         // test if superblock is created correctly
